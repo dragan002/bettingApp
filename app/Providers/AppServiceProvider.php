@@ -22,6 +22,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if (config('app.env') === 'production') {
+            \Illuminate\Support\Facades\URL::forceScheme('https');
+        }
+
         // Enable WAL mode for SQLite concurrency
         if (config('database.default') === 'sqlite' && file_exists(config('database.connections.sqlite.database'))) {
             DB::statement('PRAGMA journal_mode=WAL;');
