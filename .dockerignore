@@ -1,0 +1,12 @@
+nativephp/
+node_modules/
+vendor/
+.env
+.env.*
+!.env.example
+storage/logs/*.log
+public/build/
+.git/
+.github/
+*.md
+tests/
