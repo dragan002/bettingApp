@@ -15,13 +15,16 @@ WORKDIR /app
 
 COPY . .
 
+# Create a dummy sqlite file so package:discover doesn't crash if scripts run
+RUN touch database/database.sqlite
+
 RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 RUN npm ci && npm run build
 
 RUN mkdir -p /data storage/logs storage/framework/cache \
              storage/framework/sessions storage/framework/views \
              bootstrap/cache \
-    && chmod -R 777 storage bootstrap/cache
+    && chmod -R 777 storage bootstrap/cache /data
 
 EXPOSE ${PORT:-8080}
 

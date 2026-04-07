@@ -23,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Enable WAL mode for SQLite concurrency
-        if (config('database.default') === 'sqlite') {
+        if (config('database.default') === 'sqlite' && file_exists(config('database.connections.sqlite.database'))) {
             DB::statement('PRAGMA journal_mode=WAL;');
         }
     }
