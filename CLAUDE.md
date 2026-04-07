@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This App Is
 
-A private football prediction pool for ~15 people. Each gameweek every player predicts 1/X/2 for every match. Only a perfect prediction wins the jackpot; if nobody wins it rolls over. Tokens track real money managed offline by the admin. Direct APK distribution — no Play Store.
+A private football prediction pool for ~15 people. Each gameweek every player predicts 1/X/2 for every match. Only a perfect prediction wins the jackpot; if nobody wins it rolls over. Tokens track real money managed offline by the admin.
 
-**Stack:** Laravel 13 / PHP 8.3, NativePHP Mobile v3.2, SQLite, Blade SPA, Vanilla JS, Tailwind CSS v4, Vite, Pest v4 (via PHPUnit 12).
+**Deployment:** The app runs as a shared Laravel server (Railway.app) — all players connect via browser. NativePHP Android APK also exists for local/single-device use, but the server deployment is the intended multi-player path.
+
+**Stack:** Laravel 13 / PHP 8.4, NativePHP Mobile v3.2, SQLite, Blade SPA, Vanilla JS, Tailwind CSS v4, Vite, Pest v4 (via PHPUnit 12).
 
 ---
 
@@ -75,8 +77,8 @@ The entire frontend lives in **one file**: `resources/views/welcome.blade.php`.
 ### Admin Workflow (in order)
 
 1. **New Season** → POST `/api/admin/season` — ends any existing active season, creates new one
-2. **New Round** → POST `/api/admin/rounds` — needs matchweek number + `locks_at` datetime
-3. **Sync Fixtures** → POST `/api/admin/sync/fixtures` — calls football-data.org `/v4/competitions/{leagueId}/matches?matchday={n}`, sets round status to `active`
+2. **New Round** → POST `/api/admin/rounds` — needs matchweek number + `locks_at` datetime. **Must save with status `active`** — the Sync Fixtures button is only shown on the Admin screen when `state.round` is non-null, which requires status `active` or `locked`.
+3. **Sync Fixtures** → POST `/api/admin/sync/fixtures` — calls football-data.org `/v4/competitions/{leagueId}/matches?matchday={n}`, auto-activates a `pending` round when fixtures arrive
 4. **[Round plays out]**
 5. **Sync Results** → POST `/api/admin/sync/results` — fetches finished match scores
 6. **Resolve Round** → POST `/api/admin/rounds/{id}/resolve` — scores predictions, updates leaderboard, awards jackpot if any perfect entries
@@ -136,6 +138,27 @@ The entire frontend lives in **one file**: `resources/views/welcome.blade.php`.
 
 ---
 
+## Railway Deployment
+
+The app deploys via `Dockerfile` using PHP 8.4-cli. Key environment variables required:
+
+```
+APP_ENV=production
+APP_KEY=base64:...          # php artisan key:generate --show
+APP_URL=https://your-railway-url.up.railway.app
+DB_CONNECTION=sqlite
+DB_DATABASE=/data/database.sqlite   # persistent volume mounted at /data
+SESSION_DRIVER=file
+QUEUE_CONNECTION=sync
+FOOTBALL_DATA_API_KEY=...
+```
+
+- SQLite database lives on a Railway persistent volume at `/data` — not inside the container
+- `AppServiceProvider::boot()` guards the WAL pragma with `file_exists()` — safe when DB doesn't exist yet
+- `composer install --no-scripts` used at build time; `package:discover` runs at container startup
+
+---
+
 ## Android Build Critical Gotchas
 
 See `../setup_android_lessons.md` for full details.
@@ -146,3 +169,4 @@ See `../setup_android_lessons.md` for full details.
 4. Composer build timeout is 300s — change to 900s in `vendor/nativephp/mobile/src/Traits/PreparesBuild.php` after every `composer update`
 5. Run `native:run android` before Gradle — it substitutes `REPLACE_APP_ID` and other placeholders
 6. `ANDROID_HOME`: `export ANDROID_HOME="C:/Users/pclogiklabs/AppData/Local/Android/Sdk"`
+7. NativePHP APK has isolated SQLite per device — not suitable for multi-player use. Use Railway deployment for shared gameplay.
