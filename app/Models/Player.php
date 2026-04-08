@@ -10,6 +10,7 @@ class Player extends Model
 {
     protected $fillable = [
         'name',
+        'nickname',
         'pin',
         'is_admin',
         'token_balance',
@@ -52,11 +53,18 @@ class Player extends Model
         return Hash::check($pin, $this->pin);
     }
 
+    public function displayName(): string
+    {
+        return $this->nickname ?? $this->name;
+    }
+
     public function toApiArray(): array
     {
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'nickname' => $this->nickname,
+            'displayName' => $this->displayName(),
             'isAdmin' => $this->is_admin,
             'tokenBalance' => $this->token_balance,
         ];
@@ -67,6 +75,7 @@ class Player extends Model
         return [
             'id' => $this->id,
             'name' => $this->name,
+            'nickname' => $this->nickname,
             'isAdmin' => $this->is_admin,
             'tokenBalance' => $this->token_balance,
         ];

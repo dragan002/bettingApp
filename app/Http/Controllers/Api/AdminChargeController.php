@@ -34,17 +34,18 @@ class AdminChargeController extends Controller
                 ->get();
 
             foreach ($completedEntries as $entry) {
-                if ($entry->player->token_balance < $entryTokens) {
-                    continue; // skip players with insufficient tokens
-                }
-
+                $balanceBefore = $entry->player->token_balance;
                 $entry->player->decrement('token_balance', $entryTokens);
+                $balanceAfter = $entry->player->fresh()->token_balance;
 
                 TokenTransaction::create([
                     'player_id' => $entry->player_id,
-                    'amount' => $entryTokens,
-                    'type' => 'debit',
+                    'amount' => -$entryTokens,
+                    'type' => 'debit_round',
                     'description' => "Entry fee - Round {$round->number}",
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                    'round_id' => $round->id,
                 ]);
 
                 $charged++;

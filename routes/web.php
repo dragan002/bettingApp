@@ -4,12 +4,19 @@ use App\Http\Controllers\Api\AdminChargeController;
 use App\Http\Controllers\Api\AdminPlayerController;
 use App\Http\Controllers\Api\AdminRoundController;
 use App\Http\Controllers\Api\AdminSeasonController;
+use App\Http\Controllers\Api\AdminSettlementController;
 use App\Http\Controllers\Api\AdminSyncController;
+use App\Http\Controllers\Api\AdminTokenCreditController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\HallOfFameController;
 use App\Http\Controllers\Api\HistoryController;
 use App\Http\Controllers\Api\LeaderboardController;
+use App\Http\Controllers\Api\PlayerBadgesController;
+use App\Http\Controllers\Api\PlayerBalancesController;
+use App\Http\Controllers\Api\PlayerLedgerController;
 use App\Http\Controllers\Api\PredictionController;
 use App\Http\Controllers\Api\ResultsController;
+use App\Http\Controllers\Api\RoundPotController;
 use App\Http\Controllers\Api\StateController;
 use Illuminate\Support\Facades\Route;
 
@@ -31,6 +38,13 @@ Route::prefix('api')->middleware('auth.token')->group(function () {
     Route::get('/history', [HistoryController::class, 'index']);
     Route::get('/history/{id}', [HistoryController::class, 'show']);
 
+    // Player data
+    Route::get('/players/balances', [PlayerBalancesController::class, 'index']);
+    Route::get('/players/{id}/ledger', [PlayerLedgerController::class, 'show']);
+    Route::get('/players/{id}/badges', [PlayerBadgesController::class, 'show']);
+    Route::get('/rounds/{id}/pot', [RoundPotController::class, 'show']);
+    Route::get('/hall-of-fame', [HallOfFameController::class, 'index']);
+
     // Admin routes
     Route::prefix('admin')->middleware('admin.only')->group(function () {
         // Players
@@ -51,8 +65,20 @@ Route::prefix('api')->middleware('auth.token')->group(function () {
 
         // Season
         Route::post('/season', [AdminSeasonController::class, 'store']);
+        Route::post('/season/pending-settlement', [AdminSeasonController::class, 'pendingSettlement']);
+        Route::post('/season/close', [AdminSeasonController::class, 'close']);
 
         // Charge
         Route::post('/charge-round', [AdminChargeController::class, 'charge']);
+
+        // Token credits
+        Route::post('/players/{id}/credit', [AdminTokenCreditController::class, 'store']);
+
+        // Nickname
+        Route::put('/players/{id}/nickname', [AdminPlayerController::class, 'updateNickname']);
+
+        // Settlements
+        Route::get('/season/settlements', [AdminSettlementController::class, 'index']);
+        Route::post('/season/settlements/{playerId}', [AdminSettlementController::class, 'settle']);
     });
 });

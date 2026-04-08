@@ -28,6 +28,14 @@ class PredictionController extends Controller
             return response()->json(['message' => 'No active season'], 422);
         }
 
+        $debtLimit = -($season->entry_tokens * 3);
+        if ($player->token_balance <= $debtLimit) {
+            return response()->json([
+                'message' => 'Token balance too low to submit predictions',
+                'debtCapExceeded' => true,
+            ], 422);
+        }
+
         $round = Round::where('season_id', $season->id)
             ->where('status', 'active')
             ->first();

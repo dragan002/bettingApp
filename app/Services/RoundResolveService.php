@@ -6,11 +6,16 @@ use App\Models\Prediction;
 use App\Models\Round;
 use App\Models\RoundEntry;
 use App\Models\SeasonPoints;
+use App\Models\SeasonRoundPoints;
 use App\Models\TokenTransaction;
 use Illuminate\Support\Facades\DB;
 
 class RoundResolveService
 {
+    public function __construct(
+        private BadgeService $badgeService
+    ) {}
+
     public function resolve(Round $round): array
     {
         $stats = ['predictions_scored' => 0, 'jackpot_winners' => 0];
@@ -85,21 +90,45 @@ class RoundResolveService
                 $splitAmount = intdiv($season->jackpot, $perfectEntries->count());
 
                 foreach ($perfectEntries as $entry) {
+                    $balanceBefore = $entry->player->token_balance;
+                    $entry->player->increment('token_balance', $splitAmount);
+                    $balanceAfter = $entry->player->fresh()->token_balance;
+
                     TokenTransaction::create([
                         'player_id' => $entry->player_id,
                         'amount' => $splitAmount,
-                        'type' => 'credit',
+                        'type' => 'payout_jackpot',
                         'description' => "Jackpot win - Round {$round->number}",
+                        'balance_before' => $balanceBefore,
+                        'balance_after' => $balanceAfter,
+                        'round_id' => $round->id,
                     ]);
-
-                    $entry->player->increment('token_balance', $splitAmount);
                 }
 
                 $season->update(['jackpot' => 0]);
             }
 
+            // Write SeasonRoundPoints for each entry
+            foreach ($entries as $entry) {
+                SeasonRoundPoints::updateOrCreate(
+                    [
+                        'round_id' => $round->id,
+                        'player_id' => $entry->player_id,
+                    ],
+                    [
+                        'season_id' => $season->id,
+                        'points' => $entry->points,
+                        'is_perfect' => $entry->is_perfect,
+                    ]
+                );
+            }
+
             $round->update(['status' => 'resolved']);
         });
+
+        // Award badges after transaction completes
+        $season = $round->season;
+        $this->badgeService->awardBadges($round, $season);
 
         return $stats;
     }

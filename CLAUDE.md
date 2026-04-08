@@ -138,6 +138,18 @@ The entire frontend lives in **one file**: `resources/views/welcome.blade.php`.
 
 ---
 
+## Multi-Tenancy (Not Yet Built)
+
+The app is currently **single-tenant** — one database, one shared pool per deployment. Multiple groups (e.g. café X vs café Y) are not supported in the codebase.
+
+Two paths discussed:
+- **Multiple Railway deployments** — one per group, no code changes, each gets its own URL/database
+- **Multi-tenancy** — add a `groups` table, scope all data (`players`, `seasons`, `rounds`, `round_entries`, `season_points`) to a group, add group selector at login
+
+If multi-tenancy is implemented, every auth-protected query must be scoped through `$player->group_id`. The `TokenAuth` middleware is the right place to attach the group to the request.
+
+---
+
 ## Railway Deployment
 
 The app deploys via `Dockerfile` using PHP 8.4-cli. Key environment variables required:

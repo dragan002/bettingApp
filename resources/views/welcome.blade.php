@@ -94,6 +94,15 @@
                     </div>
                 </div>
 
+                {{-- Streak Highlight --}}
+                <div id="home-streak-highlight" style="display:none;padding:0 0 0;"></div>
+
+                {{-- Quick Nav --}}
+                <div style="display:flex;gap:10px;margin-bottom:16px;">
+                    <button class="btn btn-secondary" style="flex:1;" onclick="loadBalances()">💰 Balances</button>
+                    <button class="btn btn-secondary" style="flex:1;" onclick="loadHallOfFame()">🏛️ Hall of Fame</button>
+                </div>
+
                 {{-- My Ticket --}}
                 <div id="home-ticket" style="display:none;margin-bottom:16px;">
                     <div class="card" style="padding:0;overflow:hidden;">
@@ -233,7 +242,10 @@
                         <div id="admin-season-badge"></div>
                     </div>
                     <div id="admin-season-info" style="font-size:14px;color:#94a3b8;margin-bottom:12px;"></div>
-                    <button class="btn btn-secondary" onclick="showScreen('admin-season')">New Season</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-secondary" onclick="showScreen('admin-season')">New Season</button>
+                        <button id="admin-pending-settlement-btn" class="btn btn-secondary" style="display:none;" onclick="adminStartSettlement()">Start Settlement</button>
+                    </div>
                 </div>
 
                 <div class="card">
@@ -251,7 +263,16 @@
                 <div class="card">
                     <div style="font-size:16px;font-weight:700;color:#f1f5f9;margin-bottom:8px;">Players</div>
                     <div id="admin-players-summary" style="font-size:14px;color:#94a3b8;margin-bottom:12px;">Manage player accounts and token balances.</div>
-                    <button class="btn btn-secondary" onclick="loadAdminPlayers()">Manage Players</button>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-secondary" onclick="loadAdminPlayers()">Manage Players</button>
+                        <button class="btn btn-secondary" onclick="showScreen('admin-credit')">Credit Tokens</button>
+                    </div>
+                </div>
+
+                <div id="admin-settlement-card" class="card" style="display:none;">
+                    <div style="font-size:16px;font-weight:700;color:#f1f5f9;margin-bottom:8px;">Season Settlement</div>
+                    <div style="font-size:14px;color:#94a3b8;margin-bottom:12px;">Season is pending settlement. Process player balances.</div>
+                    <button class="btn btn-primary" onclick="loadSettlements()">Open Settlement</button>
                 </div>
 
             </div>
@@ -295,6 +316,11 @@
                 <div>
                     <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Name</label>
                     <input id="player-form-name" class="input" type="text" placeholder="Player name" autocomplete="off">
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Nickname (optional)</label>
+                    <input id="player-form-nickname" class="input" type="text" placeholder="Display name" autocomplete="off" maxlength="30">
+                    <div style="font-size:12px;color:#64748b;margin-top:6px;">Shown instead of real name if set</div>
                 </div>
                 <div>
                     <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">PIN</label>
@@ -405,6 +431,123 @@
     </div>
 
     {{-- =========================================================
+         SCREEN: Balances
+         ========================================================= --}}
+    <div id="screen-balances" class="screen">
+        <div class="screen-header">
+            <div class="back-btn" onclick="showScreen('home')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="24" height="24"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <h2>Balances</h2>
+            <div style="width:44px;"></div>
+        </div>
+        <div class="screen-content" style="padding-bottom:24px;">
+            <div id="balances-list"></div>
+        </div>
+    </div>
+
+    {{-- =========================================================
+         SCREEN: Ledger
+         ========================================================= --}}
+    <div id="screen-ledger" class="screen">
+        <div class="screen-header">
+            <div class="back-btn" onclick="showScreen('balances')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="24" height="24"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <h2 id="ledger-player-name" style="font-size:17px;">Ledger</h2>
+            <div id="ledger-player-balance" style="font-size:17px;font-weight:700;color:#22c55e;padding-right:16px;"></div>
+        </div>
+        <div class="screen-content" style="padding-bottom:24px;">
+            <div id="ledger-list"></div>
+        </div>
+    </div>
+
+    {{-- =========================================================
+         SCREEN: Badges
+         ========================================================= --}}
+    <div id="screen-badges" class="screen">
+        <div class="screen-header">
+            <div class="back-btn" onclick="showScreen('leaderboard')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="24" height="24"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <h2 id="badges-player-name" style="font-size:17px;">Badges</h2>
+            <div style="width:44px;"></div>
+        </div>
+        <div class="screen-content" style="padding:16px 0 24px;">
+            <div id="badges-shelf" style="padding:0 16px;"></div>
+        </div>
+    </div>
+
+    {{-- =========================================================
+         SCREEN: Hall of Fame
+         ========================================================= --}}
+    <div id="screen-hall-of-fame" class="screen">
+        <div class="screen-header">
+            <div class="back-btn" onclick="showScreen('home')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="24" height="24"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <h2>Hall of Fame</h2>
+            <div style="width:44px;"></div>
+        </div>
+        <div class="screen-content" style="padding:16px 0 24px;">
+            <div id="hof-list"></div>
+        </div>
+    </div>
+
+    {{-- =========================================================
+         SCREEN: Admin Settlement
+         ========================================================= --}}
+    <div id="screen-admin-settlement" class="screen">
+        <div class="screen-header">
+            <div class="back-btn" onclick="showScreen('admin')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="24" height="24"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <h2>Season Settlement</h2>
+            <div style="width:44px;"></div>
+        </div>
+        <div class="screen-content" style="padding:0 0 24px;">
+            <div style="padding:14px 16px;border-bottom:1px solid #334155;display:flex;justify-content:space-between;align-items:center;">
+                <div id="settlement-progress" style="font-size:15px;font-weight:600;color:#f1f5f9;"></div>
+                <button id="settlement-close-btn" class="btn btn-primary" style="min-height:36px;font-size:13px;padding:0 14px;" onclick="closeSeasonFinal()">Close Season</button>
+            </div>
+            <div id="settlement-content"></div>
+        </div>
+    </div>
+
+    {{-- =========================================================
+         SCREEN: Admin Credit Tokens
+         ========================================================= --}}
+    <div id="screen-admin-credit" class="screen">
+        <div class="screen-header">
+            <div class="back-btn" onclick="showScreen('admin')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="24" height="24"><path d="M15 18l-6-6 6-6"/></svg>
+            </div>
+            <h2>Credit Tokens</h2>
+            <div style="width:44px;"></div>
+        </div>
+        <div class="screen-content" style="padding:24px 20px;">
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Player</label>
+                    <select id="credit-player-id" class="input" style="cursor:pointer;">
+                        <option value="">— Select player —</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Amount (tokens)</label>
+                    <input id="credit-amount" class="input" type="number" placeholder="e.g. 10" min="1" inputmode="numeric">
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Description (optional)</label>
+                    <input id="credit-description" class="input" type="text" placeholder="e.g. Top-up" autocomplete="off">
+                </div>
+                <button id="credit-submit-btn" class="btn btn-primary btn-full btn-lg" onclick="submitCreditTokens()">Credit Tokens</button>
+                <div id="credit-result"></div>
+            </div>
+        </div>
+    </div>
+
+    {{-- =========================================================
          Bottom Navigation
          ========================================================= --}}
     <nav id="bottom-nav">
@@ -453,7 +596,22 @@ const state = {
     roundResults: null,
     historyDetail: null,
     currentScreen: 'login',
+    balances: [],
+    ledger: {},
+    pots: {},
+    badges: {},
+    hallOfFame: [],
+    settlements: null,
+    currentLedgerPlayerId: null,
+    currentBadgePlayerId: null,
 };
+
+// Apply /api/state response into state object
+function applyStateData(data) {
+    Object.assign(state, data);
+    if (Array.isArray(state.predictions)) state.predictions = {};
+    if (data.balances) state.balances = data.balances;
+}
 
 const NAV_SCREENS = ['home', 'predict', 'results', 'leaderboard', 'history', 'admin'];
 const CSRF = () => document.querySelector('meta[name="csrf-token"]').content;
@@ -520,6 +678,8 @@ function showScreen(id) {
     if (id === 'admin')       renderAdmin();
     if (id === 'admin-players')   renderAdminPlayers();
     if (id === 'admin-rounds')    renderAdminRounds();
+    if (id === 'balances')    renderBalancesScreen();
+    if (id === 'admin-credit') renderCreditForm();
 }
 
 // ================================================================
@@ -580,8 +740,7 @@ async function init() {
     while (tries < 6) {
         try {
             const data = await api('GET', '/api/state');
-            Object.assign(state, data);
-            if (Array.isArray(state.predictions)) state.predictions = {};
+            applyStateData(data);
             saveLocal();
             if (state.currentScreen === 'home')        renderHome();
             if (state.currentScreen === 'leaderboard') renderLeaderboard();
@@ -633,8 +792,7 @@ async function doLogin() {
 
         try {
             const s = await api('GET', '/api/state');
-            Object.assign(state, s);
-            if (Array.isArray(state.predictions)) state.predictions = {};
+            applyStateData(s);
             saveLocal();
         } catch(e) {}
 
@@ -653,7 +811,10 @@ async function logout() {
     Object.assign(state, {
         token:null, player:null, season:null, round:null,
         predictions:{}, leaderboard:[], history:[],
-        adminPlayers:[], adminRounds:[]
+        adminPlayers:[], adminRounds:[],
+        balances:[], ledger:{}, pots:{}, badges:{},
+        hallOfFame:[], settlements:null,
+        currentLedgerPlayerId:null, currentBadgePlayerId:null,
     });
     clearLocal();
     showScreen('login');
@@ -670,7 +831,7 @@ function toggleAdminNav() {
 // ================================================================
 function renderHome() {
     if (!state.player) return;
-    document.getElementById('home-player-name').textContent = state.player.name;
+    document.getElementById('home-player-name').textContent = state.player.displayName || state.player.name;
     document.getElementById('home-token-balance').textContent = state.player.tokenBalance;
     toggleAdminNav();
 
@@ -737,6 +898,22 @@ function renderHome() {
     predictBtn.onclick = () => showScreen('predict');
 
     renderTicket();
+
+    // Streak highlight — find player with highest onFire streak >= 2
+    const streakEl = document.getElementById('home-streak-highlight');
+    if (streakEl) {
+        const hotEntry = (state.leaderboard || []).reduce((best, e) => {
+            const s = e.streaks || {};
+            return (s.onFire >= 2 && s.onFire > (best?.streaks?.onFire || 0)) ? e : best;
+        }, null);
+        if (hotEntry && hotEntry.streaks && hotEntry.streaks.onFire >= 2) {
+            const name = hotEntry.displayName || hotEntry.playerName;
+            streakEl.innerHTML = '<div class="card" style="background:linear-gradient(135deg,#1e293b,#431407);border-color:#f97316;margin-bottom:16px;text-align:center;">🔥 <strong style="color:#f97316;">' + name + '</strong> is on a <strong style="color:#f97316;">' + hotEntry.streaks.onFire + '</strong>-round hot streak!</div>';
+            streakEl.style.display = 'block';
+        } else {
+            streakEl.style.display = 'none';
+        }
+    }
 }
 
 function renderTicket() {
@@ -953,6 +1130,7 @@ function renderRoundResults(data) {
 
     const entriesHtml = entries.map(e => {
         const isMe = state.player && e.playerId === state.player.id;
+        const displayName = e.displayName || e.playerName;
         const picksHtml = fixtures.map(f => {
             const pick = e.predictions && e.predictions[f.id] ? e.predictions[f.id] : null;
             return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #263347;">' +
@@ -964,7 +1142,7 @@ function renderRoundResults(data) {
         return '<div style="padding:0 16px;border-bottom:1px solid #334155;">' +
             '<div style="display:flex;align-items:center;padding:14px 0;cursor:pointer;" onclick="toggleDrawer(this)">' +
                 '<div style="flex:1;font-size:16px;font-weight:600;color:' + (isMe ? '#22c55e' : '#f1f5f9') + ';">' +
-                    e.playerName + (isMe ? ' (you)' : '') + (e.isPerfect ? ' 🏆' : '') + '</div>' +
+                    displayName + (isMe ? ' (you)' : '') + (e.isPerfect ? ' 🏆' : '') + '</div>' +
                 '<div style="display:flex;align-items:center;gap:8px;">' +
                     (round.status === 'resolved'
                         ? '<span style="font-size:18px;font-weight:700;color:#22c55e;">' + e.points + '</span><span style="font-size:12px;color:#64748b;">pts</span>'
@@ -1005,9 +1183,21 @@ function renderLeaderboard() {
         const rank = i + 1;
         const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
         const isMe = state.player && p.playerId === state.player.id;
+        const displayName = p.displayName || p.playerName;
+        const streaks = p.streaks || {};
+        const badgeCount = p.badgeCount || 0;
+
+        let streakHtml = '';
+        if (streaks.onFire > 0) streakHtml += '<span style="color:#f97316;font-size:13px;">🔥' + streaks.onFire + '</span>';
+        if (streaks.cold > 1) streakHtml += '<span style="color:#93c5fd;font-size:13px;margin-left:4px;">❄' + streaks.cold + '</span>';
+        if (badgeCount > 0) streakHtml += '<span style="color:#fbbf24;font-size:13px;margin-left:4px;">⭐' + badgeCount + '</span>';
+
         return '<div class="lb-row" style="' + (isMe ? 'background:#22c55e11;' : '') + '">' +
             '<div class="lb-rank ' + (rank <= 3 ? 'top3' : '') + '" style="font-size:' + (rank <= 3 ? '20' : '16') + 'px;">' + rankIcon + '</div>' +
-            '<div class="lb-name" style="' + (isMe ? 'color:#22c55e;' : '') + '">' + p.playerName + (isMe ? ' (you)' : '') + '</div>' +
+            '<div class="lb-name" style="' + (isMe ? 'color:#22c55e;' : '') + 'cursor:pointer;" onclick="openBadges(' + p.playerId + ')">' +
+                displayName + (isMe ? ' (you)' : '') +
+                (streakHtml ? '<div style="margin-top:2px;display:flex;gap:4px;">' + streakHtml + '</div>' : '') +
+            '</div>' +
             '<div style="display:flex;align-items:baseline;gap:4px;">' +
                 '<span class="lb-points">' + p.points + '</span>' +
                 '<span style="font-size:12px;color:#64748b;">pts</span>' +
@@ -1083,6 +1273,7 @@ function renderHistoryDetail(data) {
     const sorted = [...entries].sort((a, b) => b.points - a.points);
     const entriesHtml = sorted.map(e => {
         const isMe = state.player && e.playerId === state.player.id;
+        const displayName = e.displayName || e.playerName;
         const picksHtml = fixtures.map(f => {
             const pick = e.predictions && e.predictions[f.id] ? e.predictions[f.id] : null;
             const result = f.result;
@@ -1097,7 +1288,7 @@ function renderHistoryDetail(data) {
         return '<div style="padding:0 16px;border-bottom:1px solid #334155;">' +
             '<div style="display:flex;align-items:center;padding:14px 0;cursor:pointer;" onclick="toggleDrawer(this)">' +
                 '<div style="flex:1;font-size:16px;font-weight:600;color:' + (isMe ? '#22c55e' : '#f1f5f9') + ';">' +
-                    e.playerName + (isMe ? ' (you)' : '') + (e.isPerfect ? ' 🏆' : '') + '</div>' +
+                    displayName + (isMe ? ' (you)' : '') + (e.isPerfect ? ' 🏆' : '') + '</div>' +
                 '<div style="display:flex;align-items:baseline;gap:4px;">' +
                     '<span style="font-size:18px;font-weight:700;color:#22c55e;">' + e.points + '</span>' +
                     '<span style="font-size:12px;color:#64748b;">pts</span>' +
@@ -1119,12 +1310,19 @@ function renderAdmin() {
     document.getElementById('admin-jackpot').textContent = state.season?.jackpot ?? 0;
 
     if (state.season) {
-        document.getElementById('admin-season-badge').innerHTML = '<span class="badge badge-green">Active</span>';
+        const isPending = state.season.isPendingSettlement;
+        document.getElementById('admin-season-badge').innerHTML = isPending
+            ? '<span class="badge badge-amber">Pending Settlement</span>'
+            : '<span class="badge badge-green">Active</span>';
         document.getElementById('admin-season-info').textContent =
             state.season.leagueName + ' · ' + state.season.entryTokens + ' tokens/round';
+        document.getElementById('admin-settlement-card').style.display = isPending ? 'block' : 'none';
+        document.getElementById('admin-pending-settlement-btn').style.display = isPending ? 'none' : 'inline-flex';
     } else {
         document.getElementById('admin-season-badge').innerHTML = '<span class="badge badge-slate">None</span>';
         document.getElementById('admin-season-info').textContent = 'No active season.';
+        document.getElementById('admin-settlement-card').style.display = 'none';
+        document.getElementById('admin-pending-settlement-btn').style.display = 'none';
     }
 
     if (state.round) {
@@ -1153,7 +1351,7 @@ async function adminAction(btnId, label, fn) {
     try {
         await fn();
         const s = await api('GET', '/api/state');
-        Object.assign(state, s);
+        applyStateData(s);
         saveLocal();
         renderAdmin();
     } catch(e) {
@@ -1195,6 +1393,14 @@ function adminResolveRound() {
     adminAction('admin-resolve-btn', 'Resolve Round', async () => {
         const d = await api('POST', '/api/admin/rounds/' + state.round.id + '/resolve');
         toast(d.message || 'Round resolved');
+    });
+}
+
+async function adminStartSettlement() {
+    if (!confirm('Move the season to pending settlement? Players will not be able to make new predictions.')) return;
+    adminAction('admin-pending-settlement-btn', 'Start Settlement', async () => {
+        await api('POST', '/api/admin/season/pending-settlement');
+        toast('Season moved to pending settlement');
     });
 }
 
@@ -1242,6 +1448,7 @@ function openPlayerForm(playerId) {
     document.getElementById('player-form-id').value = playerId || '';
     document.getElementById('player-form-title').textContent = p ? 'Edit Player' : 'Add Player';
     document.getElementById('player-form-name').value = p?.name || '';
+    document.getElementById('player-form-nickname').value = p?.nickname || '';
     document.getElementById('player-form-pin').value = '';
     document.getElementById('player-form-tokens').value = p !== null ? (p?.tokenBalance ?? 0) : 0;
     document.getElementById('player-form-admin').checked = p?.isAdmin || false;
@@ -1254,6 +1461,7 @@ function openPlayerForm(playerId) {
 async function savePlayerForm() {
     const id = document.getElementById('player-form-id').value;
     const name = document.getElementById('player-form-name').value.trim();
+    const nickname = document.getElementById('player-form-nickname').value.trim();
     const pin  = document.getElementById('player-form-pin').value.trim();
     const tokenBalance = parseInt(document.getElementById('player-form-tokens').value) || 0;
     const isAdmin = document.getElementById('player-form-admin').checked;
@@ -1272,8 +1480,14 @@ async function savePlayerForm() {
     try {
         if (id) {
             await api('PUT', '/api/admin/players/' + id, payload);
+            // Also save nickname separately
+            await api('PUT', '/api/admin/players/' + id + '/nickname', { nickname: nickname || null });
         } else {
-            await api('POST', '/api/admin/players', payload);
+            const res = await api('POST', '/api/admin/players', payload);
+            // Save nickname for new player too if provided
+            if (nickname && res.player?.id) {
+                await api('PUT', '/api/admin/players/' + res.player.id + '/nickname', { nickname });
+            }
         }
         toast('Player saved ✓');
         const data = await api('GET', '/api/admin/players');
@@ -1374,7 +1588,7 @@ async function saveRoundForm() {
         }
         toast('Round saved ✓');
         const s = await api('GET', '/api/state');
-        Object.assign(state, s);
+        applyStateData(s);
         saveLocal();
         showScreen('admin-rounds');
         renderAdminRounds();
@@ -1406,7 +1620,7 @@ document.getElementById('season-form-save').addEventListener('click', async () =
         await api('POST', '/api/admin/season', { league_id: leagueId, league_name: leagueName, entry_tokens: entryTokens });
         toast('Season started ✓');
         const s = await api('GET', '/api/state');
-        Object.assign(state, s);
+        applyStateData(s);
         saveLocal();
         showScreen('admin');
     } catch(e) {
@@ -1416,6 +1630,386 @@ document.getElementById('season-form-save').addEventListener('click', async () =
         btn.textContent = 'Start Season';
     }
 });
+
+// ================================================================
+//  BADGE CONSTANTS
+// ================================================================
+const BADGE_REQUIREMENTS = {
+    sniper:         { kafa: '4+ pts in 2 rounds', rakija: '6+ pts in 3 rounds', zlato: '8+ pts in 3 rounds' },
+    perfectionist:  { kafa: '1 perfect round', rakija: '2 perfect rounds', zlato: '3 perfect rounds' },
+    iron_man:       { kafa: '3 rounds in a row', rakija: '5 rounds in a row', zlato: '8 rounds in a row' },
+    comeback_kid:   { kafa: '1 comeback', rakija: '2 comebacks', zlato: '3 comebacks' },
+    jackpot:        { kafa: '1 jackpot win', rakija: '2 jackpot wins', zlato: '3 jackpot wins' },
+    ledeni:         { kafa: '6 cold rounds', rakija: '9 cold rounds', zlato: '12 cold rounds' },
+};
+const BADGE_EMOJIS = { sniper:'🎯', perfectionist:'⭐', iron_man:'⛓️', comeback_kid:'🔄', jackpot:'💰', ledeni:'❄️' };
+const BADGE_LABELS = { sniper:'Sniper', perfectionist:'Perfectionist', iron_man:'Iron Man', comeback_kid:'Comeback Kid', jackpot:'Jackpot', ledeni:'Ledeni' };
+const TIER_COLORS = { kafa:'background:#78350f;color:#fde68a;', rakija:'background:#92400e;color:#fff;', zlato:'background:#fbbf24;color:#1a1a1a;' };
+const TIER_LABELS = { kafa:'Kafa', rakija:'Rakija', zlato:'Zlato' };
+const TX_TYPE_LABELS = {
+    credit: 'Credit', debit_round: 'Entry Fee', payout_jackpot: 'Jackpot Win',
+    payout_season_winner: 'Season Win', settlement_refund: 'Settlement Refund',
+    settlement_collected: 'Settlement Collected', adjustment: 'Adjustment',
+    debit: 'Debit',
+};
+
+// ================================================================
+//  LAZY LOADERS — NEW SCREENS
+// ================================================================
+async function loadBalances() {
+    try {
+        const data = await api('GET', '/api/players/balances');
+        state.balances = data.players;
+        showScreen('balances');
+    } catch(e) {
+        toast(e.message || 'Failed to load balances', 'error');
+    }
+}
+
+function renderBalancesScreen() {
+    const players = state.balances || [];
+    const list = document.getElementById('balances-list');
+    if (!list) return;
+    if (!players.length) {
+        list.innerHTML = '<div style="color:#94a3b8;text-align:center;padding:32px;">No players.</div>';
+        return;
+    }
+    list.innerHTML = players.map(p => {
+        const balColor = p.tokenBalance < 0 ? '#ef4444' : '#22c55e';
+        return '<div class="admin-item" onclick="loadLedger(' + p.id + ')">' +
+            '<div style="flex:1;">' +
+                '<div style="font-size:16px;font-weight:600;color:#f1f5f9;">' + (p.displayName || p.name) + '</div>' +
+                '<div style="font-size:13px;color:' + balColor + ';margin-top:2px;">' + p.tokenBalance + ' tokens</div>' +
+            '</div>' +
+            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>' +
+        '</div>';
+    }).join('');
+}
+
+async function loadLedger(playerId) {
+    state.currentLedgerPlayerId = playerId;
+    showScreen('ledger');
+    document.getElementById('ledger-list').innerHTML =
+        '<div style="color:#94a3b8;text-align:center;padding:24px;"><span class="spinner"></span></div>';
+    try {
+        const data = await api('GET', '/api/players/' + playerId + '/ledger');
+        state.ledger[playerId] = data;
+        renderLedger(playerId);
+    } catch(e) {
+        document.getElementById('ledger-list').innerHTML =
+            '<div style="color:#ef4444;text-align:center;padding:16px;">Failed to load</div>';
+    }
+}
+
+async function loadMoreLedger(playerId, page) {
+    try {
+        const data = await api('GET', '/api/players/' + playerId + '/ledger?page=' + page);
+        const existing = state.ledger[playerId];
+        if (existing) {
+            existing.transactions = [...(existing.transactions || []), ...data.transactions];
+            existing.meta = data.meta;
+        } else {
+            state.ledger[playerId] = data;
+        }
+        renderLedger(playerId);
+    } catch(e) {
+        toast('Failed to load more', 'error');
+    }
+}
+
+function renderLedger(playerId) {
+    const data = state.ledger[playerId];
+    if (!data) return;
+    const { player, transactions, meta } = data;
+
+    document.getElementById('ledger-player-name').textContent = player.displayName || player.name;
+    document.getElementById('ledger-player-balance').textContent = player.tokenBalance;
+    document.getElementById('ledger-player-balance').style.color = player.tokenBalance < 0 ? '#ef4444' : '#22c55e';
+
+    if (!transactions || !transactions.length) {
+        document.getElementById('ledger-list').innerHTML =
+            '<div style="color:#94a3b8;text-align:center;padding:32px;">No transactions yet.</div>';
+        return;
+    }
+
+    const rows = transactions.map(t => {
+        const isPos = t.amount > 0;
+        const amtColor = isPos ? '#22c55e' : '#ef4444';
+        const amtPrefix = isPos ? '+' : '';
+        const date = t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '';
+        const before = t.balanceBefore != null ? t.balanceBefore : '—';
+        const after = t.balanceAfter != null ? t.balanceAfter : '—';
+        const label = TX_TYPE_LABELS[t.type] || t.type;
+        return '<div style="padding:12px 16px;border-bottom:1px solid #263347;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;">' +
+                '<div style="flex:1;">' +
+                    '<div style="font-size:13px;font-weight:600;color:#94a3b8;">' + label + '</div>' +
+                    (t.description ? '<div style="font-size:13px;color:#f1f5f9;margin-top:2px;">' + t.description + '</div>' : '') +
+                    '<div style="font-size:11px;color:#475569;margin-top:4px;">' + date + ' · ' + before + ' → ' + after + '</div>' +
+                '</div>' +
+                '<div style="font-size:17px;font-weight:700;color:' + amtColor + ';margin-left:12px;">' + amtPrefix + t.amount + '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+
+    const loadMore = (meta && meta.currentPage < meta.lastPage)
+        ? '<div style="padding:16px;text-align:center;"><button class="btn btn-secondary" onclick="loadMoreLedger(' + playerId + ',' + (meta.currentPage + 1) + ')">Load more</button></div>'
+        : '';
+
+    document.getElementById('ledger-list').innerHTML = rows + loadMore;
+}
+
+async function openBadges(playerId) {
+    state.currentBadgePlayerId = playerId;
+    showScreen('badges');
+    document.getElementById('badges-shelf').innerHTML =
+        '<div style="color:#94a3b8;text-align:center;padding:24px;"><span class="spinner"></span></div>';
+    try {
+        const data = await api('GET', '/api/players/' + playerId + '/badges');
+        state.badges[playerId] = data;
+        renderBadges(playerId);
+    } catch(e) {
+        document.getElementById('badges-shelf').innerHTML =
+            '<div style="color:#ef4444;text-align:center;padding:16px;">Failed to load</div>';
+    }
+}
+
+function renderBadges(playerId) {
+    const data = state.badges[playerId];
+    if (!data) return;
+    const { player, shelf } = data;
+
+    document.getElementById('badges-player-name').textContent = player.displayName || player.name;
+
+    if (!shelf || !shelf.length) {
+        document.getElementById('badges-shelf').innerHTML =
+            '<div style="color:#94a3b8;text-align:center;padding:32px;">No badges data.</div>';
+        return;
+    }
+
+    const html = shelf.map(cat => {
+        const emoji = BADGE_EMOJIS[cat.category] || '🏅';
+        const label = BADGE_LABELS[cat.category] || cat.category;
+        const slots = cat.slots.map(slot => {
+            const tierColor = TIER_COLORS[slot.tier] || '';
+            const tierLabel = TIER_LABELS[slot.tier] || slot.tier;
+            const req = (BADGE_REQUIREMENTS[cat.category] || {})[slot.tier] || '';
+            if (slot.earned) {
+                return '<div style="flex:1;border-radius:10px;padding:10px 6px;text-align:center;' + tierColor + '">' +
+                    '<div style="font-size:22px;">' + emoji + '</div>' +
+                    '<div style="font-size:11px;font-weight:700;margin-top:4px;">' + tierLabel + '</div>' +
+                '</div>';
+            } else {
+                return '<div style="flex:1;border-radius:10px;padding:10px 6px;text-align:center;background:#1e293b;color:#475569;border:1px dashed #334155;">' +
+                    '<div style="font-size:22px;filter:grayscale(1);opacity:0.3;">🔒</div>' +
+                    '<div style="font-size:10px;margin-top:4px;line-height:1.3;">' + req + '</div>' +
+                '</div>';
+            }
+        }).join('');
+
+        return '<div class="card" style="margin-bottom:12px;">' +
+            '<div style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:10px;">' + emoji + ' ' + label + '</div>' +
+            '<div style="display:flex;gap:8px;">' + slots + '</div>' +
+        '</div>';
+    }).join('');
+
+    document.getElementById('badges-shelf').innerHTML = html;
+}
+
+async function loadHallOfFame() {
+    showScreen('hall-of-fame');
+    document.getElementById('hof-list').innerHTML =
+        '<div style="color:#94a3b8;text-align:center;padding:24px;"><span class="spinner"></span></div>';
+    try {
+        const data = await api('GET', '/api/hall-of-fame');
+        state.hallOfFame = data.seasons;
+        renderHallOfFame();
+    } catch(e) {
+        document.getElementById('hof-list').innerHTML =
+            '<div style="color:#ef4444;text-align:center;padding:16px;">Failed to load</div>';
+    }
+}
+
+function renderHallOfFame() {
+    const seasons = state.hallOfFame || [];
+    if (!seasons.length) {
+        document.getElementById('hof-list').innerHTML =
+            '<div style="padding:48px 24px;text-align:center;color:#94a3b8;">No completed seasons yet.</div>';
+        return;
+    }
+
+    document.getElementById('hof-list').innerHTML = seasons.map(s => {
+        const closedAt = s.closedAt ? new Date(s.closedAt).toLocaleDateString() : '';
+        const jackpotWinner = s.jackpotWinner?.displayName || 'No jackpot winner';
+        const lbWinner = s.leaderboardWinner?.displayName || '—';
+        const posSeason = s.playerOfSeason?.displayName || '—';
+        return '<div class="card" style="margin:0 16px 12px;">' +
+            '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">' +
+                '<div>' +
+                    '<div style="font-size:17px;font-weight:700;color:#f1f5f9;">' + (s.leagueName || 'Season') + '</div>' +
+                    '<div style="font-size:13px;color:#94a3b8;margin-top:2px;">' + s.totalRounds + ' rounds · ' + closedAt + '</div>' +
+                '</div>' +
+                '<div style="text-align:right;">' +
+                    '<div style="font-size:12px;color:#94a3b8;">Jackpot</div>' +
+                    '<div style="font-size:18px;font-weight:700;color:#22c55e;">' + s.totalJackpot + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid #334155;padding-top:12px;">' +
+                '<div style="display:flex;justify-content:space-between;">' +
+                    '<div style="font-size:13px;color:#94a3b8;">💰 Jackpot Winner</div>' +
+                    '<div style="font-size:13px;font-weight:600;color:#f1f5f9;">' + jackpotWinner + '</div>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;">' +
+                    '<div style="font-size:13px;color:#94a3b8;">🏆 Leaderboard Champion</div>' +
+                    '<div style="font-size:13px;font-weight:600;color:#f1f5f9;">' + lbWinner + '</div>' +
+                '</div>' +
+                '<div style="display:flex;justify-content:space-between;">' +
+                    '<div style="font-size:13px;color:#94a3b8;">⭐ Player of the Season</div>' +
+                    '<div style="font-size:13px;font-weight:600;color:#f1f5f9;">' + posSeason + '</div>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+async function loadSettlements() {
+    showScreen('admin-settlement');
+    document.getElementById('settlement-content').innerHTML =
+        '<div style="color:#94a3b8;text-align:center;padding:24px;"><span class="spinner"></span></div>';
+    try {
+        const data = await api('GET', '/api/admin/season/settlements');
+        state.settlements = data;
+        renderSettlements();
+    } catch(e) {
+        document.getElementById('settlement-content').innerHTML =
+            '<div style="color:#ef4444;text-align:center;padding:16px;">' + (e.message || 'Failed to load') + '</div>';
+    }
+}
+
+function renderSettlements() {
+    const s = state.settlements;
+    if (!s) return;
+    const total = (s.unsettled || []).length + (s.settled || []).length;
+    const settledCount = (s.settled || []).length;
+
+    document.getElementById('settlement-progress').textContent = settledCount + ' of ' + total + ' settled';
+    const allDone = s.unsettled.length === 0;
+    const closeBtn = document.getElementById('settlement-close-btn');
+    if (closeBtn) {
+        closeBtn.disabled = !allDone;
+        closeBtn.style.opacity = allDone ? '1' : '0.5';
+    }
+
+    const unsettledHtml = s.unsettled.length
+        ? '<div style="font-size:13px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;padding:0 16px 8px;">Unsettled</div>' +
+          s.unsettled.map(p => {
+            const balColor = p.tokenBalance < 0 ? '#ef4444' : '#22c55e';
+            return '<div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #263347;gap:12px;">' +
+                '<div style="flex:1;">' +
+                    '<div style="font-size:15px;font-weight:600;color:#f1f5f9;">' + p.displayName + '</div>' +
+                    '<div style="font-size:13px;color:' + balColor + ';margin-top:2px;">' + p.tokenBalance + ' tokens</div>' +
+                '</div>' +
+                '<button class="btn btn-secondary" style="min-height:36px;font-size:13px;padding:0 12px;" onclick="settlePlayer(' + p.playerId + ')">Mark Settled</button>' +
+            '</div>';
+          }).join('')
+        : '';
+
+    const settledHtml = s.settled.length
+        ? '<div style="font-size:13px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;padding:16px 16px 8px;">Settled</div>' +
+          s.settled.map(p => {
+            const amtColor = p.settledAmount >= 0 ? '#22c55e' : '#ef4444';
+            const date = p.settledAt ? new Date(p.settledAt).toLocaleDateString() : '';
+            return '<div style="display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #263347;">' +
+                '<div style="flex:1;">' +
+                    '<div style="font-size:15px;font-weight:600;color:#f1f5f9;">' + p.displayName + '</div>' +
+                    '<div style="font-size:13px;color:#94a3b8;margin-top:2px;">' + date + '</div>' +
+                '</div>' +
+                '<div style="font-size:15px;font-weight:700;color:' + amtColor + ';">' + p.settledAmount + '</div>' +
+            '</div>';
+          }).join('')
+        : '';
+
+    document.getElementById('settlement-content').innerHTML = unsettledHtml + settledHtml;
+}
+
+async function settlePlayer(playerId) {
+    try {
+        await api('POST', '/api/admin/season/settlements/' + playerId);
+        toast('Player settled ✓');
+        const data = await api('GET', '/api/admin/season/settlements');
+        state.settlements = data;
+        renderSettlements();
+    } catch(e) {
+        toast(e.message || 'Settlement failed', 'error');
+    }
+}
+
+async function closeSeasonFinal() {
+    if (!confirm('Close the season? This is final and cannot be undone.')) return;
+    const btn = document.getElementById('settlement-close-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+        await api('POST', '/api/admin/season/close');
+        toast('Season closed ✓');
+        const s = await api('GET', '/api/state');
+        applyStateData(s);
+        saveLocal();
+        showScreen('admin');
+        renderAdmin();
+    } catch(e) {
+        toast(e.message || 'Failed to close season', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Close Season';
+    }
+}
+
+// Credit tokens form
+async function submitCreditTokens() {
+    const playerId = document.getElementById('credit-player-id').value;
+    const amount = parseInt(document.getElementById('credit-amount').value) || 0;
+    const description = document.getElementById('credit-description').value.trim();
+
+    if (!playerId) { toast('Select a player', 'error'); return; }
+    if (amount < 1) { toast('Amount must be at least 1', 'error'); return; }
+
+    const btn = document.getElementById('credit-submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+
+    try {
+        const data = await api('POST', '/api/admin/players/' + playerId + '/credit', {
+            amount, description: description || null
+        });
+        // Optimistic: update balances in state
+        const idx = state.balances.findIndex(p => p.id === data.player.id);
+        if (idx !== -1) state.balances[idx].tokenBalance = data.player.tokenBalance;
+
+        document.getElementById('credit-result').innerHTML =
+            '<div class="card" style="background:#22c55e22;border-color:#22c55e44;margin-top:16px;text-align:center;">' +
+            '✓ Credited <strong style="color:#22c55e;">' + amount + '</strong> tokens to <strong>' + (data.player.nickname || data.player.name) + '</strong><br>' +
+            '<span style="font-size:13px;color:#94a3b8;">New balance: ' + data.player.tokenBalance + '</span>' +
+            '</div>';
+
+        document.getElementById('credit-amount').value = '';
+        document.getElementById('credit-description').value = '';
+    } catch(e) {
+        toast(e.message || 'Credit failed', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Credit Tokens';
+    }
+}
+
+function renderCreditForm() {
+    const players = state.adminPlayers && state.adminPlayers.length ? state.adminPlayers : state.balances;
+    const options = (players || []).map(p =>
+        '<option value="' + p.id + '">' + (p.nickname || p.name || p.displayName) + ' (' + p.tokenBalance + ' tokens)</option>'
+    ).join('');
+    const sel = document.getElementById('credit-player-id');
+    if (sel) sel.innerHTML = '<option value="">— Select player —</option>' + options;
+    document.getElementById('credit-result').innerHTML = '';
+}
 
 // ================================================================
 //  BOOT

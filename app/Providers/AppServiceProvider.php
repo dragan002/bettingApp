@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Services\BadgeService;
 use App\Services\FootballDataService;
 use App\Services\RoundResolveService;
 use App\Services\RoundSyncService;
+use App\Services\StreakService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 
@@ -17,6 +19,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(FootballDataService::class);
         $this->app->singleton(RoundSyncService::class);
+        $this->app->singleton(BadgeService::class);
+        $this->app->singleton(StreakService::class);
         $this->app->singleton(RoundResolveService::class);
     }
 

@@ -5,20 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SeasonPoints extends Model
+class SeasonSettlement extends Model
 {
-    protected $table = 'season_points';
-
     protected $fillable = [
         'season_id',
         'player_id',
-        'points',
-        'rounds_played',
+        'settled_amount',
+        'settled_at',
     ];
 
     protected $casts = [
-        'points' => 'integer',
-        'rounds_played' => 'integer',
+        'settled_amount' => 'integer',
+        'settled_at' => 'datetime',
     ];
 
     public function season(): BelongsTo
@@ -31,19 +29,17 @@ class SeasonPoints extends Model
         return $this->belongsTo(Player::class);
     }
 
-    /**
-     * Load with('player') before calling to get displayName.
-     */
     public function toApiArray(): array
     {
         return [
+            'id' => $this->id,
+            'seasonId' => $this->season_id,
             'playerId' => $this->player_id,
-            'playerName' => $this->relationLoaded('player') ? $this->player->name : null,
             'displayName' => $this->relationLoaded('player')
-                ? ($this->player?->displayName() ?? $this->player_name ?? '')
-                : ($this->player_name ?? ''),
-            'points' => $this->points,
-            'roundsPlayed' => $this->rounds_played,
+                ? ($this->player?->displayName() ?? '')
+                : '',
+            'settledAmount' => $this->settled_amount,
+            'settledAt' => $this->settled_at?->toISOString(),
         ];
     }
 }

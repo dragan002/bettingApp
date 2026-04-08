@@ -69,6 +69,15 @@ class AdminPlayerController extends Controller
         return response()->json(['player' => $player->fresh()->toAdminArray()]);
     }
 
+    public function updateNickname(Request $request, int $id): JsonResponse
+    {
+        $request->validate(['nickname' => 'nullable|string|max:30']);
+        $player = Player::findOrFail($id);
+        $player->update(['nickname' => $request->input('nickname')]);
+
+        return response()->json(['player' => $player->toAdminArray()]);
+    }
+
     public function destroy(Request $request, int $id): JsonResponse
     {
         $player = Player::findOrFail($id);
