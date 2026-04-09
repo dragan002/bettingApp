@@ -53,7 +53,7 @@ class PredictionController extends Controller
         $activeFixtureIds = $activeFixtures->pluck('id')->flip();
 
         try {
-            DB::transaction(function () use ($player, $round, $activeFixtures, $activeFixtureIds, $request) {
+            DB::transaction(function () use ($player, $round, $season, $activeFixtures, $activeFixtureIds, $request) {
                 // Re-check lock inside transaction
                 $round->refresh();
                 if ($round->isLocked()) {
