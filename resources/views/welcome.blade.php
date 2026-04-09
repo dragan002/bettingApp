@@ -1124,13 +1124,8 @@ async function submitPredictions() {
     saveLocal(); // optimistic
 
     try {
-        const res = await api('POST', '/api/predictions', { predictions: state.predictions });
-        // Apply updated token balance (entry fee may have been auto-charged)
-        if (res && res.tokenBalance !== undefined) {
-            state.player.tokenBalance = res.tokenBalance;
-            document.getElementById('home-token-balance').textContent = res.tokenBalance;
-        }
-        saveLocal();
+        await api('POST', '/api/predictions', { predictions: state.predictions });
+        await refreshState();
         toast('Predictions saved ✓');
     } catch(e) {
         toast(e.message || 'Failed to save', 'error');
