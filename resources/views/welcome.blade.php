@@ -151,6 +151,9 @@
             </div>
             <div id="predict-list" style="padding:16px;"></div>
             <div id="predict-footer" style="padding:0 16px 16px;display:none;">
+                <div id="predict-debt-banner" style="display:none;background:#ef444422;border:1px solid #ef4444;border-radius:10px;padding:12px 16px;margin-bottom:12px;text-align:center;color:#ef4444;font-size:14px;font-weight:500;">
+                    Token balance too low — pay your debt before submitting
+                </div>
                 <div id="predict-progress" style="font-size:13px;color:#94a3b8;margin-bottom:12px;text-align:center;"></div>
                 <button id="predict-submit" class="btn btn-primary btn-full btn-lg">Save Predictions</button>
             </div>
@@ -761,7 +764,7 @@ async function init() {
             break;
         } catch(e) {
             const status = e.status || (e.message === 'Unauthenticated' ? 401 : 0);
-            if (status === 401) { logout(); return; }
+            if (status === 401) { showLoading(false); logout(); return; }
             tries++;
             if (tries < 6) await sleep(1200 * tries);
         }
@@ -1048,6 +1051,8 @@ function renderPredict() {
     renderFixtureList(fixtures, false);
     updatePredictProgress(fixtures);
     document.getElementById('predict-footer').style.display = fixtures.length ? 'block' : 'none';
+    document.getElementById('predict-debt-banner').style.display = 'none';
+    document.getElementById('predict-submit').disabled = false;
     document.getElementById('predict-submit').onclick = submitPredictions;
 }
 
@@ -1123,15 +1128,25 @@ async function submitPredictions() {
     btn.innerHTML = '<span class="spinner"></span> Saving…';
     saveLocal(); // optimistic
 
+    let debtBlocked = false;
     try {
         await api('POST', '/api/predictions', { predictions: state.predictions });
         await refreshState();
         toast('Predictions saved ✓');
     } catch(e) {
-        toast(e.message || 'Failed to save', 'error');
+        if (e.debtCapExceeded) {
+            debtBlocked = true;
+            document.getElementById('predict-debt-banner').style.display = 'block';
+            document.getElementById('predict-submit').disabled = true;
+            document.getElementById('predict-submit').textContent = 'Save Predictions';
+        } else {
+            toast(e.message || 'Failed to save', 'error');
+        }
     } finally {
-        btn.disabled = false;
-        btn.textContent = 'Save Predictions';
+        if (!debtBlocked) {
+            btn.disabled = false;
+            btn.textContent = 'Save Predictions';
+        }
     }
 }
 
@@ -1423,15 +1438,6 @@ function adminSyncResults() {
     adminAction('admin-sync-results-btn', 'Sync Results', async () => {
         const d = await api('POST', '/api/admin/sync/results', { round_id: state.round.id });
         toast(d.message || 'Results synced');
-    });
-}
-
-function adminChargeRound() {
-    if (!state.round) return;
-    if (!confirm('Deduct ' + (state.season?.entryTokens || '?') + ' tokens from all complete entries?')) return;
-    adminAction('admin-charge-btn', 'Charge Entry', async () => {
-        const d = await api('POST', '/api/admin/charge-round', { round_id: state.round.id });
-        toast(d.message || 'Players charged');
     });
 }
 

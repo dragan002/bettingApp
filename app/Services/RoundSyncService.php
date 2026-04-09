@@ -133,6 +133,7 @@ class RoundSyncService
             ->exists();
 
         if ($exists) {
+            Log::warning("Auto next-round skipped: round {$nextNumber} already exists for season {$season->id}");
             return;
         }
 

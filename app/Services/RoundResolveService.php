@@ -105,7 +105,8 @@ class RoundResolveService
                     ]);
                 }
 
-                $season->update(['jackpot' => 0]);
+                $remainder = $season->jackpot % $perfectEntries->count();
+                $season->update(['jackpot' => $remainder]);
             }
 
             // Write SeasonRoundPoints for each entry

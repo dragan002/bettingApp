@@ -47,11 +47,12 @@ class HistoryController extends Controller
                 $playerPredictions = $predictions->get($entry->player_id, collect());
 
                 return [
-                    'playerId' => $entry->player_id,
-                    'playerName' => $entry->player->name,
-                    'isComplete' => $entry->is_complete,
-                    'isPerfect' => $entry->is_perfect,
-                    'points' => $entry->points,
+                    'playerId'    => $entry->player_id,
+                    'playerName'  => $entry->player->name,
+                    'displayName' => $entry->player->displayName(),
+                    'isComplete'  => $entry->is_complete,
+                    'isPerfect'   => $entry->is_perfect,
+                    'points'      => $entry->points,
                     'predictions' => $playerPredictions->pluck('pick', 'fixture_id'),
                 ];
             });
