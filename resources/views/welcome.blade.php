@@ -611,6 +611,13 @@ const state = {
     currentBadgePlayerId: null,
 };
 
+// Fetch fresh state from server, apply it, and persist to localStorage
+async function refreshState() {
+    const s = await api('GET', '/api/state');
+    applyStateData(s);
+    saveLocal();
+}
+
 // Apply /api/state response into state object
 function applyStateData(data) {
     Object.assign(state, data);
@@ -1398,9 +1405,7 @@ async function adminAction(btnId, label, fn) {
     btn.innerHTML = '<span class="spinner"></span>';
     try {
         await fn();
-        const s = await api('GET', '/api/state');
-        applyStateData(s);
-        saveLocal();
+        await refreshState();
         renderAdmin();
     } catch(e) {
         toast(e.message || 'Action failed', 'error');
@@ -1530,6 +1535,7 @@ async function savePlayerForm() {
             }
         }
         toast('Player saved ✓');
+        await refreshState();
         const data = await api('GET', '/api/admin/players');
         state.adminPlayers = data.players;
         showScreen('admin-players');
@@ -1546,6 +1552,7 @@ async function deletePlayer(playerId) {
     try {
         await api('DELETE', '/api/admin/players/' + playerId);
         toast('Player deleted');
+        await refreshState();
         const data = await api('GET', '/api/admin/players');
         state.adminPlayers = data.players;
         showScreen('admin-players');
@@ -1629,9 +1636,7 @@ async function saveRoundForm() {
             await api('POST', '/api/admin/rounds', { number });
         }
         toast('Round saved ✓');
-        const s = await api('GET', '/api/state');
-        applyStateData(s);
-        saveLocal();
+        await refreshState();
         showScreen('admin-rounds');
         renderAdminRounds();
     } catch(e) {
@@ -1661,9 +1666,7 @@ document.getElementById('season-form-save').addEventListener('click', async () =
     try {
         await api('POST', '/api/admin/season', { league_id: leagueId, league_name: leagueName, entry_tokens: entryTokens });
         toast('Season started ✓');
-        const s = await api('GET', '/api/state');
-        applyStateData(s);
-        saveLocal();
+        await refreshState();
         showScreen('admin');
     } catch(e) {
         toast(e.message || 'Failed', 'error');
@@ -1978,6 +1981,7 @@ async function settlePlayer(playerId) {
     try {
         await api('POST', '/api/admin/season/settlements/' + playerId);
         toast('Player settled ✓');
+        await refreshState();
         const data = await api('GET', '/api/admin/season/settlements');
         state.settlements = data;
         renderSettlements();
@@ -1994,9 +1998,7 @@ async function closeSeasonFinal() {
     try {
         await api('POST', '/api/admin/season/close');
         toast('Season closed ✓');
-        const s = await api('GET', '/api/state');
-        applyStateData(s);
-        saveLocal();
+        await refreshState();
         showScreen('admin');
         renderAdmin();
     } catch(e) {
@@ -2035,6 +2037,7 @@ async function submitCreditTokens() {
 
         document.getElementById('credit-amount').value = '';
         document.getElementById('credit-description').value = '';
+        await refreshState();
     } catch(e) {
         toast(e.message || 'Credit failed', 'error');
     } finally {
