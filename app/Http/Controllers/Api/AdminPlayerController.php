@@ -44,7 +44,7 @@ class AdminPlayerController extends Controller
             'name' => 'sometimes|string|max:50|unique:players,name,' . $id,
             'pin' => 'sometimes|string|min:4|max:8',
             'is_admin' => 'sometimes|boolean',
-            'token_balance' => 'sometimes|integer|min:0',
+            'token_balance' => 'sometimes|integer',
         ]);
 
         $data = $request->only(['name', 'is_admin', 'token_balance']);
@@ -56,11 +56,17 @@ class AdminPlayerController extends Controller
         // Record token adjustment if balance changed
         if ($request->has('token_balance') && $request->integer('token_balance') !== $player->token_balance) {
             $diff = $request->integer('token_balance') - $player->token_balance;
+            $balanceBefore = $player->token_balance;
+            $player->update(['token_balance' => $request->integer('token_balance')]);
+            unset($data['token_balance']);
+
             TokenTransaction::create([
-                'player_id' => $player->id,
-                'amount' => abs($diff),
-                'type' => $diff > 0 ? 'credit' : 'debit',
-                'description' => 'Admin adjustment',
+                'player_id'      => $player->id,
+                'amount'         => abs($diff),
+                'type'           => $diff > 0 ? 'credit' : 'adjustment',
+                'description'    => 'Admin adjustment',
+                'balance_before' => $balanceBefore,
+                'balance_after'  => $player->fresh()->token_balance,
             ]);
         }
 

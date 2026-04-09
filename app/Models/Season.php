@@ -39,12 +39,13 @@ class Season extends Model
     public function toApiArray(): array
     {
         return [
-            'id' => $this->id,
-            'leagueId' => $this->league_id,
-            'leagueName' => $this->league_name,
-            'status' => $this->status,
-            'jackpot' => $this->jackpot,
-            'entryTokens' => $this->entry_tokens,
+            'id'                   => $this->id,
+            'leagueId'             => $this->league_id,
+            'leagueName'           => $this->league_name,
+            'status'               => $this->status,
+            'jackpot'              => $this->jackpot,
+            'entryTokens'          => $this->entry_tokens,
+            'isPendingSettlement'  => $this->status === 'pending_settlement',
         ];
     }
 }

@@ -98,11 +98,7 @@ class StateController extends Controller
             ->values()
             ->all();
 
-        $seasonData = null;
-        if ($season) {
-            $seasonData = $season->toApiArray();
-            $seasonData['isPendingSettlement'] = $season->status === 'pending_settlement';
-        }
+        $seasonData = $season?->toApiArray();
 
         $roundData = $round?->toApiArray();
         if ($round) {

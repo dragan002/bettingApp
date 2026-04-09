@@ -34,6 +34,15 @@ class AdminChargeController extends Controller
                 ->get();
 
             foreach ($completedEntries as $entry) {
+                $alreadyCharged = TokenTransaction::where('player_id', $entry->player_id)
+                    ->where('round_id', $round->id)
+                    ->where('type', 'debit_round')
+                    ->exists();
+
+                if ($alreadyCharged) {
+                    continue;
+                }
+
                 $balanceBefore = $entry->player->token_balance;
                 $entry->player->decrement('token_balance', $entryTokens);
                 $balanceAfter = $entry->player->fresh()->token_balance;

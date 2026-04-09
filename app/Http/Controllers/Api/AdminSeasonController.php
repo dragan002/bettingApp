@@ -10,6 +10,7 @@ use App\Models\Season;
 use App\Models\SeasonHallOfFame;
 use App\Models\SeasonPoints;
 use App\Models\SeasonSettlement;
+use App\Models\TokenTransaction;
 use App\Services\FootballDataService;
 use App\Services\RoundSyncService;
 use Illuminate\Http\JsonResponse;
@@ -116,10 +117,11 @@ class AdminSeasonController extends Controller
 
         $leaderboardWinnerId = $leaderboardTop?->player_id;
 
-        // Determine jackpot winner (player with most payout_jackpot transactions for this season's rounds)
-        // Use the leaderboard winner as fallback - jackpot winner comes from resolve logic
-        // Find first player who has a payout_jackpot transaction (from round resolution)
-        $jackpotWinnerId = null;
+        // Determine jackpot winner: find player with a payout_jackpot transaction for this season's rounds
+        $jackpotWinnerId = TokenTransaction::join('rounds', 'rounds.id', '=', 'token_transactions.round_id')
+            ->where('rounds.season_id', $season->id)
+            ->where('token_transactions.type', 'payout_jackpot')
+            ->value('token_transactions.player_id');
 
         // Determine player of season: PlayerBadge where season_id, tier='zlato',
         // group by player_id, order by count desc, take first — tie goes to leaderboard leader
