@@ -26,6 +26,9 @@ Schedule::call(function () {
     app(\App\Services\RoundSyncService::class)->syncFixtures($round);
 })->dailyAt('08:00')->name('sync-fixtures')->withoutOverlapping();
 
+// Daily database backup to Cloudflare R2 at 03:00 UTC
+Schedule::command('backup:database')->dailyAt('03:00')->name('backup-database')->withoutOverlapping();
+
 // Sync results for active/locked round every 3 hours
 Schedule::call(function () {
     $season = Season::where('status', 'active')->first();
