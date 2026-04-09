@@ -28,4 +28,4 @@ RUN mkdir -p /data storage/logs storage/framework/cache \
 
 EXPOSE ${PORT:-8080}
 
-CMD ["sh", "-c", "php artisan package:discover --ansi && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"]
+CMD ["sh", "-c", "php artisan package:discover --ansi && php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan schedule:work --no-interaction & php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"]

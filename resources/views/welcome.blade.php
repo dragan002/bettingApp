@@ -381,9 +381,13 @@
                     <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Matchweek Number</label>
                     <input id="round-form-number" class="input" type="number" placeholder="e.g. 28" min="1" inputmode="numeric">
                 </div>
-                <div>
-                    <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Locks At (first kick-off)</label>
+                <div id="round-form-locks-at-group" style="display:none;">
+                    <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Lock Time Override</label>
                     <input id="round-form-locks-at" class="input" type="datetime-local">
+                    <div style="font-size:12px;color:#64748b;margin-top:6px;">Override the auto-detected lock time if needed.</div>
+                </div>
+                <div id="round-form-locks-at-note" style="display:none;background:#1e293b;border:1px solid #334155;border-radius:10px;padding:12px;">
+                    <div style="font-size:13px;color:#94a3b8;">Lock time will be set automatically when fixtures are synced.</div>
                 </div>
                 <div id="round-form-status-group" style="display:none;">
                     <label style="display:block;font-size:13px;font-weight:600;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Status</label>
@@ -1597,6 +1601,10 @@ function editRound(roundId) {
     document.getElementById('round-form-number').value = r?.number || '';
     document.getElementById('round-form-status-group').style.display = r ? 'block' : 'none';
 
+    // Show locks_at field only when editing (admin override); show note when creating
+    document.getElementById('round-form-locks-at-group').style.display = r ? 'block' : 'none';
+    document.getElementById('round-form-locks-at-note').style.display = r ? 'none' : 'block';
+
     if (r?.locksAt) {
         const dt = new Date(r.locksAt);
         document.getElementById('round-form-locks-at').value =
@@ -1615,19 +1623,17 @@ async function saveRoundForm() {
     const locksAtRaw = document.getElementById('round-form-locks-at').value;
     const status = document.getElementById('round-form-status').value;
 
-    if (!locksAtRaw) { toast('Set a lock time', 'error'); return; }
-    const locksAt = new Date(locksAtRaw).toISOString();
-
     const btn = document.getElementById('round-form-save');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>';
 
     try {
         if (id) {
+            const locksAt = locksAtRaw ? new Date(locksAtRaw).toISOString() : null;
             await api('PUT', '/api/admin/rounds/' + id, { status, locks_at: locksAt });
         } else {
             if (!number || number < 1) { toast('Enter matchweek number', 'error'); btn.disabled=false; btn.textContent='Save Round'; return; }
-            await api('POST', '/api/admin/rounds', { number, locks_at: locksAt });
+            await api('POST', '/api/admin/rounds', { number });
         }
         toast('Round saved ✓');
         const s = await api('GET', '/api/state');

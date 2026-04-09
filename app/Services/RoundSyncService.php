@@ -32,6 +32,21 @@ class RoundSyncService
             $round->update(['status' => 'active']);
         }
 
+        // Auto-set locks_at from the earliest fixture kickoff
+        if ($synced > 0) {
+            $earliest = Fixture::where('round_id', $round->id)
+                ->whereNotNull('kickoff_at')
+                ->min('kickoff_at');
+
+            if ($earliest !== null) {
+                $earliestCarbon = \Illuminate\Support\Carbon::parse($earliest);
+
+                if ($round->locks_at === null || ! $round->locks_at->eq($earliestCarbon)) {
+                    $round->update(['locks_at' => $earliestCarbon]);
+                }
+            }
+        }
+
         return $synced;
     }
 

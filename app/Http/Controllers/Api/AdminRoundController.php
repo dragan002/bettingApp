@@ -36,14 +36,13 @@ class AdminRoundController extends Controller
 
         $request->validate([
             'number' => 'required|integer|min:1|unique:rounds,number,NULL,id,season_id,' . $season->id,
-            'locks_at' => 'required|date|after:now',
         ]);
 
         $round = Round::create([
             'season_id' => $season->id,
             'number' => $request->integer('number'),
             'status' => 'pending',
-            'locks_at' => $request->locks_at,
+            'locks_at' => null,
         ]);
 
         return response()->json(['round' => $round->toApiArray()], 201);
