@@ -257,8 +257,6 @@
                         <button class="btn btn-secondary" onclick="showScreen('admin-rounds');renderAdminRounds()">Manage Rounds</button>
                         <button id="admin-sync-fixtures-btn" class="btn btn-secondary" style="display:none;">Sync Fixtures</button>
                         <button id="admin-sync-results-btn" class="btn btn-secondary" style="display:none;">Sync Results</button>
-
-                        <button id="admin-resolve-btn" class="btn btn-primary" style="display:none;">Resolve Round</button>
                     </div>
                 </div>
 
@@ -353,7 +351,8 @@
             </div>
             <h2>Rounds</h2>
             <div style="width:44px;display:flex;align-items:center;justify-content:flex-end;">
-                <div class="back-btn" onclick="editRound(null)">
+                {{-- New Round button hidden — rounds are created automatically. Tap to use as fallback. --}}
+                <div class="back-btn" onclick="editRound(null)" style="display:none;" id="admin-rounds-new-btn">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="24" height="24"><path d="M12 5v14M5 12h14"/></svg>
                 </div>
             </div>
@@ -1374,19 +1373,21 @@ function renderAdmin() {
     }
 
     if (state.round) {
+        const roundStatusLabel = state.round.status === 'resolved'
+            ? 'Resolved · Next round created automatically'
+            : state.round.isLocked
+                ? 'Locked · Results syncing automatically'
+                : 'Active · Results syncing automatically';
         document.getElementById('admin-round-info').textContent =
-            'Matchweek ' + state.round.number + ' · ' + state.round.status;
+            'Matchweek ' + state.round.number + ' · ' + roundStatusLabel;
         ['admin-sync-fixtures-btn','admin-sync-results-btn'].forEach(id =>
             document.getElementById(id).style.display = 'inline-flex');
-        document.getElementById('admin-resolve-btn').style.display =
-            state.round.status !== 'resolved' ? 'inline-flex' : 'none';
 
         document.getElementById('admin-sync-fixtures-btn').onclick = adminSyncFixtures;
         document.getElementById('admin-sync-results-btn').onclick = adminSyncResults;
-        document.getElementById('admin-resolve-btn').onclick = adminResolveRound;
     } else {
-        document.getElementById('admin-round-info').textContent = 'No active round.';
-        ['admin-sync-fixtures-btn','admin-sync-results-btn','admin-resolve-btn'].forEach(id =>
+        document.getElementById('admin-round-info').textContent = 'No active round. A round will be created automatically when the season starts.';
+        ['admin-sync-fixtures-btn','admin-sync-results-btn'].forEach(id =>
             document.getElementById(id).style.display = 'none');
     }
 }
@@ -1434,14 +1435,6 @@ function adminChargeRound() {
     });
 }
 
-function adminResolveRound() {
-    if (!state.round) return;
-    if (!confirm('Resolve this round? This scores all predictions and updates the leaderboard.')) return;
-    adminAction('admin-resolve-btn', 'Resolve Round', async () => {
-        const d = await api('POST', '/api/admin/rounds/' + state.round.id + '/resolve');
-        toast(d.message || 'Round resolved');
-    });
-}
 
 async function adminStartSettlement() {
     if (!confirm('Move the season to pending settlement? Players will not be able to make new predictions.')) return;

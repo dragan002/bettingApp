@@ -25,6 +25,24 @@ class FootballDataService
         return $client;
     }
 
+    public function getCurrentMatchday(string $leagueId): ?int
+    {
+        $response = $this->http()
+            ->get("{$this->baseUrl}/competitions/{$leagueId}");
+
+        if (! $response->successful()) {
+            Log::error('football-data.org getCurrentMatchday error', [
+                'leagueId' => $leagueId,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+
+            return null;
+        }
+
+        return $response->json('currentSeason.currentMatchday');
+    }
+
     public function getMatches(string $leagueId, int $matchday): array
     {
         $response = $this->http()

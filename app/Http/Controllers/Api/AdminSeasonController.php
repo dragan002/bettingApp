@@ -5,15 +5,24 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Player;
 use App\Models\PlayerBadge;
+use App\Models\Round;
 use App\Models\Season;
 use App\Models\SeasonHallOfFame;
 use App\Models\SeasonPoints;
 use App\Models\SeasonSettlement;
+use App\Services\FootballDataService;
+use App\Services\RoundSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AdminSeasonController extends Controller
 {
+    public function __construct(
+        private FootballDataService $footballData,
+        private RoundSyncService $roundSync,
+    ) {}
+
     public function store(Request $request): JsonResponse
     {
         $request->validate([
@@ -32,13 +41,36 @@ class AdminSeasonController extends Controller
         // End any existing active season
         Season::active()->update(['status' => 'ended']);
 
+        $leagueId = strtoupper($request->league_id);
+
         $season = Season::create([
-            'league_id' => strtoupper($request->league_id),
+            'league_id' => $leagueId,
             'league_name' => $request->league_name,
             'entry_tokens' => $request->integer('entry_tokens'),
             'jackpot' => 0,
             'status' => 'active',
         ]);
+
+        // Auto-create first round from current matchday
+        try {
+            $matchday = $this->footballData->getCurrentMatchday($leagueId);
+
+            if ($matchday !== null) {
+                $round = Round::create([
+                    'season_id' => $season->id,
+                    'number' => $matchday,
+                    'status' => 'pending',
+                    'locks_at' => null,
+                ]);
+
+                $this->roundSync->syncFixtures($round);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Auto-create first round failed after season creation', [
+                'season_id' => $season->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return response()->json(['season' => $season->toApiArray()], 201);
     }

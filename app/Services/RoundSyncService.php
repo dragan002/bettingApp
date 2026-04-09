@@ -4,10 +4,14 @@ namespace App\Services;
 
 use App\Models\Fixture;
 use App\Models\Round;
+use Illuminate\Support\Facades\Log;
 
 class RoundSyncService
 {
-    public function __construct(private FootballDataService $api) {}
+    public function __construct(
+        private FootballDataService $api,
+        private RoundResolveService $resolver,
+    ) {}
 
     public function syncFixtures(Round $round): int
     {
@@ -71,6 +75,74 @@ class RoundSyncService
             $updated += $affected;
         }
 
+        // Auto-resolve when all non-cancelled/postponed fixtures are finished
+        if ($round->status !== 'resolved') {
+            $this->maybeAutoResolve($round);
+        }
+
         return $updated;
+    }
+
+    private function maybeAutoResolve(Round $round): void
+    {
+        $activeFixtures = Fixture::where('round_id', $round->id)
+            ->whereNotIn('status', ['postponed', 'cancelled'])
+            ->get();
+
+        // Nothing to resolve if there are no active fixtures
+        if ($activeFixtures->isEmpty()) {
+            return;
+        }
+
+        // All active fixtures must be finished
+        $allFinished = $activeFixtures->every(fn ($f) => $f->status === 'finished');
+
+        if (! $allFinished) {
+            return;
+        }
+
+        try {
+            $this->resolver->resolve($round);
+        } catch (\Throwable $e) {
+            Log::error('Auto-resolve failed', [
+                'round_id' => $round->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        // Auto-create the next round
+        try {
+            $this->createNextRound($round);
+        } catch (\Throwable $e) {
+            Log::error('Auto-create next round failed', [
+                'round_id' => $round->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    private function createNextRound(Round $round): void
+    {
+        $nextNumber = $round->number + 1;
+        $season = $round->season;
+
+        $exists = Round::where('season_id', $season->id)
+            ->where('number', $nextNumber)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        $nextRound = Round::create([
+            'season_id' => $season->id,
+            'number' => $nextNumber,
+            'status' => 'pending',
+            'locks_at' => null,
+        ]);
+
+        $this->syncFixtures($nextRound);
     }
 }
