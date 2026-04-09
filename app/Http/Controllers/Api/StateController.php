@@ -7,6 +7,7 @@ use App\Models\Player;
 use App\Models\PlayerBadge;
 use App\Models\Prediction;
 use App\Models\Round;
+use App\Models\RoundEntry;
 use App\Models\Season;
 use App\Models\SeasonPoints;
 use App\Services\StreakService;
@@ -103,10 +104,18 @@ class StateController extends Controller
             $seasonData['isPendingSettlement'] = $season->status === 'pending_settlement';
         }
 
+        $roundData = $round?->toApiArray();
+        if ($round) {
+            $roundData['completedCount'] = RoundEntry::where('round_id', $round->id)
+                ->where('is_complete', true)
+                ->count();
+            $roundData['totalPlayers'] = Player::where('is_admin', false)->count();
+        }
+
         return response()->json([
             'player' => $player->toApiArray(),
             'season' => $seasonData,
-            'round' => $round?->toApiArray(),
+            'round' => $roundData,
             'predictions' => $predictions,
             'leaderboard' => $leaderboard,
             'history' => $history,

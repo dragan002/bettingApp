@@ -88,7 +88,9 @@
                             </div>
                             <div id="home-round-status-badge"></div>
                         </div>
-                        <div id="home-locks-at" style="font-size:13px;color:#94a3b8;margin-bottom:16px;"></div>
+                        <div id="home-locks-at" style="font-size:13px;color:#94a3b8;margin-bottom:6px;"></div>
+                        <div id="home-countdown" style="font-size:22px;font-weight:700;color:#f59e0b;margin-bottom:8px;display:none;font-variant-numeric:tabular-nums;"></div>
+                        <div id="home-completion-counter" style="font-size:13px;color:#64748b;margin-bottom:12px;display:none;"></div>
                         <div id="home-prediction-status"></div>
                         <button id="home-predict-btn" class="btn btn-primary btn-full" style="margin-top:12px;display:none;">Make Predictions →</button>
                     </div>
@@ -255,7 +257,7 @@
                         <button class="btn btn-secondary" onclick="showScreen('admin-rounds');renderAdminRounds()">Manage Rounds</button>
                         <button id="admin-sync-fixtures-btn" class="btn btn-secondary" style="display:none;">Sync Fixtures</button>
                         <button id="admin-sync-results-btn" class="btn btn-secondary" style="display:none;">Sync Results</button>
-                        <button id="admin-charge-btn" class="btn btn-secondary" style="display:none;">Charge Entry</button>
+
                         <button id="admin-resolve-btn" class="btn btn-primary" style="display:none;">Resolve Round</button>
                     </div>
                 </div>
@@ -672,6 +674,7 @@ function showScreen(id) {
     if (navEl) navEl.classList.add('active');
 
     if (id === 'home')        renderHome();
+    else if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
     if (id === 'predict')     renderPredict();
     if (id === 'leaderboard') renderLeaderboard();
     if (id === 'history')     renderHistory();
@@ -861,17 +864,28 @@ function renderHome() {
 
     if (state.round.locksAt) {
         const locksAt = new Date(state.round.locksAt);
+        const locksAtStr = locksAt.toLocaleDateString() + ' ' +
+            locksAt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
         const diff = locksAt - Date.now();
         if (diff > 0) {
-            const h = Math.floor(diff / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            document.getElementById('home-locks-at').textContent =
-                'Locks in ' + h + 'h ' + m + 'm · ' +
-                locksAt.toLocaleDateString() + ' ' +
-                locksAt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+            document.getElementById('home-locks-at').textContent = 'Locks · ' + locksAtStr;
+            startCountdown(locksAt);
         } else {
-            document.getElementById('home-locks-at').textContent = 'Locked · ' + new Date(state.round.locksAt).toLocaleDateString();
+            document.getElementById('home-locks-at').textContent = 'Locked · ' + locksAtStr;
+            document.getElementById('home-countdown').style.display = 'none';
         }
+    }
+
+    // Completion counter
+    const completedCount = state.round.completedCount ?? null;
+    const totalPlayers = state.round.totalPlayers ?? null;
+    const counterEl = document.getElementById('home-completion-counter');
+    if (completedCount !== null && totalPlayers !== null) {
+        counterEl.textContent = completedCount + '/' + totalPlayers + ' players submitted predictions';
+        counterEl.style.display = 'block';
+        counterEl.style.color = completedCount === totalPlayers ? '#22c55e' : '#64748b';
+    } else {
+        counterEl.style.display = 'none';
     }
 
     const fixtures = (state.round.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled');
@@ -914,6 +928,31 @@ function renderHome() {
             streakEl.style.display = 'none';
         }
     }
+}
+
+let _countdownTimer = null;
+function startCountdown(locksAt) {
+    if (_countdownTimer) clearInterval(_countdownTimer);
+    const el = document.getElementById('home-countdown');
+    if (!el) return;
+
+    function tick() {
+        const diff = locksAt - Date.now();
+        if (diff <= 0) {
+            el.style.display = 'none';
+            clearInterval(_countdownTimer);
+            return;
+        }
+        const h  = Math.floor(diff / 3600000);
+        const m  = Math.floor((diff % 3600000) / 60000);
+        const s  = Math.floor((diff % 60000) / 1000);
+        el.textContent = (h > 0 ? h + 'h ' : '') +
+            (h > 0 || m > 0 ? String(m).padStart(2,'0') + 'm ' : '') +
+            String(s).padStart(2,'0') + 's';
+        el.style.display = 'block';
+    }
+    tick();
+    _countdownTimer = setInterval(tick, 1000);
 }
 
 function renderTicket() {
@@ -1075,7 +1114,12 @@ async function submitPredictions() {
     saveLocal(); // optimistic
 
     try {
-        await api('POST', '/api/predictions', { predictions: state.predictions });
+        const res = await api('POST', '/api/predictions', { predictions: state.predictions });
+        // Apply updated token balance (entry fee may have been auto-charged)
+        if (res && res.tokenBalance !== undefined) {
+            state.player.tokenBalance = res.tokenBalance;
+            document.getElementById('home-token-balance').textContent = res.tokenBalance;
+        }
         saveLocal();
         toast('Predictions saved ✓');
     } catch(e) {
@@ -1328,18 +1372,17 @@ function renderAdmin() {
     if (state.round) {
         document.getElementById('admin-round-info').textContent =
             'Matchweek ' + state.round.number + ' · ' + state.round.status;
-        ['admin-sync-fixtures-btn','admin-sync-results-btn','admin-charge-btn'].forEach(id =>
+        ['admin-sync-fixtures-btn','admin-sync-results-btn'].forEach(id =>
             document.getElementById(id).style.display = 'inline-flex');
         document.getElementById('admin-resolve-btn').style.display =
             state.round.status !== 'resolved' ? 'inline-flex' : 'none';
 
         document.getElementById('admin-sync-fixtures-btn').onclick = adminSyncFixtures;
         document.getElementById('admin-sync-results-btn').onclick = adminSyncResults;
-        document.getElementById('admin-charge-btn').onclick = adminChargeRound;
         document.getElementById('admin-resolve-btn').onclick = adminResolveRound;
     } else {
         document.getElementById('admin-round-info').textContent = 'No active round.';
-        ['admin-sync-fixtures-btn','admin-sync-results-btn','admin-charge-btn','admin-resolve-btn'].forEach(id =>
+        ['admin-sync-fixtures-btn','admin-sync-results-btn','admin-resolve-btn'].forEach(id =>
             document.getElementById(id).style.display = 'none');
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Prediction;
 use App\Models\Round;
 use App\Models\RoundEntry;
 use App\Models\Season;
+use App\Models\TokenTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,15 +77,51 @@ class PredictionController extends Controller
                     ->whereIn('fixture_id', $activeFixtures->pluck('id'))
                     ->count();
 
+                $isComplete = $predictedCount === $totalActive;
+
                 RoundEntry::updateOrCreate(
                     ['round_id' => $round->id, 'player_id' => $player->id],
-                    ['is_complete' => $predictedCount === $totalActive]
+                    ['is_complete' => $isComplete]
                 );
+
+                // Auto-charge entry fee when predictions become complete for the first time
+                if ($isComplete) {
+                    $alreadyCharged = TokenTransaction::where('player_id', $player->id)
+                        ->where('round_id', $round->id)
+                        ->where('type', 'debit_round')
+                        ->exists();
+
+                    if (! $alreadyCharged) {
+                        $entryTokens = $season->entry_tokens;
+                        $balanceBefore = $player->token_balance;
+                        $player->decrement('token_balance', $entryTokens);
+                        $player->refresh();
+
+                        TokenTransaction::create([
+                            'player_id'      => $player->id,
+                            'amount'         => -$entryTokens,
+                            'type'           => 'debit_round',
+                            'description'    => "Entry fee - Round {$round->number}",
+                            'balance_before' => $balanceBefore,
+                            'balance_after'  => $player->token_balance,
+                            'round_id'       => $round->id,
+                        ]);
+
+                        // Add to jackpot
+                        $season->increment('jackpot', $entryTokens);
+                    }
+                }
             });
         } catch (\RuntimeException $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
-        return response()->json(['message' => 'Predictions saved']);
+        // Return updated token balance so frontend can update immediately
+        $player->refresh();
+
+        return response()->json([
+            'message'      => 'Predictions saved',
+            'tokenBalance' => $player->token_balance,
+        ]);
     }
 }
