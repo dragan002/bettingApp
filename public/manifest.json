@@ -1,25 +1,56 @@
 {
+    "id": "/",
     "name": "Tipping Pool",
     "short_name": "Tipping Pool",
     "description": "Private football prediction pool — predict, win, repeat.",
     "start_url": "/",
+    "scope": "/",
     "display": "standalone",
     "orientation": "portrait",
     "background_color": "#0f172a",
     "theme_color": "#0f172a",
     "lang": "en",
+    "categories": ["sports", "games"],
     "icons": [
         {
             "src": "/icons/icon-192.png",
             "sizes": "192x192",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
         },
         {
             "src": "/icons/icon-512.png",
             "sizes": "512x512",
             "type": "image/png",
-            "purpose": "any maskable"
+            "purpose": "any"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "/icons/screenshot-home.png",
+            "sizes": "390x844",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Home screen showing jackpot, round info and leaderboard"
+        },
+        {
+            "src": "/icons/screenshot-predict.png",
+            "sizes": "390x844",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Predict screen — pick 1, X or 2 for each match"
         }
     ]
 }
