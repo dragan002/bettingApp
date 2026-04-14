@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\Route;
 // SPA entry point
 Route::get('/', fn () => view('welcome'));
 
+// Privacy policy (required for Play Store)
+Route::get('/privacy', fn () => view('privacy'));
+
 // Auth (no token required)
 Route::prefix('api/auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
