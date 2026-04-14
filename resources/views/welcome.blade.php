@@ -2067,6 +2067,13 @@ function renderCreditForm() {
 //  BOOT
 // ================================================================
 window.addEventListener('DOMContentLoaded', init);
+
+// Register service worker for PWA / Play Store support
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+    });
+}
 </script>
 </body>
 </html>
