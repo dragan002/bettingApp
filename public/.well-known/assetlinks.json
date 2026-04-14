@@ -1,10 +1,8 @@
 [{
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
         "namespace": "android_app",
-        "package_name": "YOUR_PACKAGE_NAME_HERE",
-        "sha256_cert_fingerprints": [
-            "YOUR_SHA256_FINGERPRINT_HERE"
-        ]
-    }
-}]
+        "package_name": "app.railway.up.bettingapp_production_745e.twa",
+        "sha256_cert_fingerprints": ["91:C3:3D:47:1D:A7:B2:BE:AF:18:0C:30:CD:93:36:B3:14:90:DB:87:BA:AF:BC:16:5F:D0:FF:36:97:CE:DF:BC"]
+      }
+    }]
