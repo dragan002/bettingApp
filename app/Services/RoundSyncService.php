@@ -15,7 +15,13 @@ class RoundSyncService
 
     public function syncFixtures(Round $round): int
     {
+        $round->load('season');
         $season = $round->season;
+
+        if ($season === null) {
+            throw new \RuntimeException('Round has no associated season');
+        }
+
         $matches = $this->api->getMatches($season->league_id, $round->number);
 
         $synced = 0;
@@ -43,10 +49,18 @@ class RoundSyncService
                 ->min('kickoff_at');
 
             if ($earliest !== null) {
-                $earliestCarbon = \Illuminate\Support\Carbon::parse($earliest);
+                try {
+                    $earliestCarbon = \Illuminate\Support\Carbon::parse($earliest);
 
-                if ($round->locks_at === null || ! $round->locks_at->eq($earliestCarbon)) {
-                    $round->update(['locks_at' => $earliestCarbon]);
+                    if ($round->locks_at === null || ! $round->locks_at->eq($earliestCarbon)) {
+                        $round->update(['locks_at' => $earliestCarbon]);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('Could not parse earliest fixture kickoff for locks_at', [
+                        'round_id' => $round->id,
+                        'earliest' => $earliest,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
             }
         }
@@ -56,7 +70,13 @@ class RoundSyncService
 
     public function syncResults(Round $round): int
     {
+        $round->load('season');
         $season = $round->season;
+
+        if ($season === null) {
+            throw new \RuntimeException('Round has no associated season');
+        }
+
         $matches = $this->api->getFinishedMatches($season->league_id, $round->number);
 
         $updated = 0;
