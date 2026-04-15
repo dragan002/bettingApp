@@ -63,6 +63,8 @@ The entire frontend lives in **one file**: `resources/views/welcome.blade.php`.
 ### State Flow
 
 `/api/state` is the master endpoint — called on login and after every admin action. Returns:
+
+> **Round selection logic in `StateController`:** queries `whereIn('status', ['pending', 'active', 'locked'])` ordered by status priority (`active` → `pending` → `locked`), then by round number descending. This means a newly created `pending` round (no fixtures yet) IS returned and visible. The admin sync buttons only appear when `state.round` is non-null — if the round is `pending` and has no fixtures, the admin can still click sync.
 ```json
 {
   "player": { "id", "name", "nickname", "displayName", "isAdmin", "tokenBalance" },
@@ -219,7 +221,7 @@ Currently **single-tenant** — one database, one shared pool per deployment. Tw
 
 ## Railway Deployment
 
-Deploys via nixpacks (auto-detected PHP/Laravel). Start command defined in `nixpacks.toml` → runs `start.sh` which calls `php artisan migrate --force` then `php artisan serve`.
+Deploys via **Dockerfile** (takes precedence over nixpacks.toml). The Dockerfile CMD runs `config:clear`, `package:discover`, `migrate --force`, then starts `schedule:work` (background) and `artisan serve`.
 
 Required environment variables:
 
@@ -238,10 +240,15 @@ R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 R2_BUCKET=bettingapp-backups
 ```
 
-- PostgreSQL is a separate Railway service — data persists independently of app deployments
-- `start.sh` runs on every deploy: only runs pending migrations, never wipes data
+- PostgreSQL is a **separate** Railway service — data persists independently of app deployments. The filesystem is ephemeral; never store state on disk.
+- `DATABASE_URL` must be copied from the PostgreSQL service into the **bettingApp service variables** manually — Railway does not share env vars between services automatically.
 - To run a one-off artisan command: use Railway CLI `railway run php artisan <command>`
 - Daily database backup to Cloudflare R2 still runs via scheduler (`backup:database` command) — update it if PostgreSQL backup strategy changes
+
+### football-data.org API
+- Free tier: **100 requests/day**. The scheduler (fixtures daily 08:00 UTC, results every 3h) consumes these — manual sync during heavy debug sessions can exhaust the quota.
+- `ConnectionException` (timeout) is caught in `FootballDataService::getMatches()` and `getFinishedMatches()` — returns `[]` with a warning log instead of crashing. `getCurrentMatchday()` (called at season creation) is **not** wrapped and will 500 if the API times out.
+- `RoundSyncService::syncFixtures()` explicitly calls `$round->load('season')` to guarantee the relation is hydrated regardless of the caller's eager-loading.
 
 ---
 
