@@ -23,6 +23,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+    if (!e.request.url.startsWith('http')) return;
+
     // Only handle GET requests
     if (e.request.method !== 'GET') return;
 

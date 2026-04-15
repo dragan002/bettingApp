@@ -45,10 +45,20 @@ class FootballDataService
 
     public function getMatches(string $leagueId, int $matchday): array
     {
-        $response = $this->http()
-            ->get("{$this->baseUrl}/competitions/{$leagueId}/matches", [
+        try {
+            $response = $this->http()
+                ->get("{$this->baseUrl}/competitions/{$leagueId}/matches", [
+                    'matchday' => $matchday,
+                ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::warning('football-data.org getMatches timeout', [
+                'leagueId' => $leagueId,
                 'matchday' => $matchday,
+                'error' => $e->getMessage(),
             ]);
+
+            return [];
+        }
 
         if (! $response->successful()) {
             Log::error('football-data.org error', [
@@ -76,11 +86,21 @@ class FootballDataService
 
     public function getFinishedMatches(string $leagueId, int $matchday): array
     {
-        $response = $this->http()
-            ->get("{$this->baseUrl}/competitions/{$leagueId}/matches", [
+        try {
+            $response = $this->http()
+                ->get("{$this->baseUrl}/competitions/{$leagueId}/matches", [
+                    'matchday' => $matchday,
+                    'status' => 'FINISHED',
+                ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::warning('football-data.org getFinishedMatches timeout', [
+                'leagueId' => $leagueId,
                 'matchday' => $matchday,
-                'status' => 'FINISHED',
+                'error' => $e->getMessage(),
             ]);
+
+            return [];
+        }
 
         if (! $response->successful()) {
             return [];
