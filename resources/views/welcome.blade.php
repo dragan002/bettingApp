@@ -406,6 +406,9 @@
                     </select>
                 </div>
                 <button id="round-form-save" class="btn btn-primary btn-full btn-lg" style="margin-top:8px;">Save Round</button>
+                <div id="round-form-resolve-wrap" style="display:none;margin-top:8px;">
+                    <button id="round-form-resolve" class="btn btn-full btn-lg" style="background:#ef444422;border:1px solid #ef444488;color:#ef4444;" onclick="adminResolveRound(document.getElementById('round-form-id').value)">Resolve Round</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1621,6 +1624,7 @@ function editRound(roundId) {
     }
 
     if (r?.status) document.getElementById('round-form-status').value = r.status;
+    document.getElementById('round-form-resolve-wrap').style.display = (r && r.status === 'locked') ? 'block' : 'none';
     document.getElementById('round-form-save').onclick = saveRoundForm;
 }
 
@@ -1651,6 +1655,18 @@ async function saveRoundForm() {
     } finally {
         btn.disabled = false;
         btn.textContent = 'Save Round';
+    }
+}
+
+async function adminResolveRound(roundId) {
+    if (!confirm('Resolve this round? This will score all predictions and create the next round.')) return;
+    try {
+        const d = await api('POST', `/api/admin/rounds/${roundId}/resolve`);
+        toast('Round resolved. ' + (d.stats && d.stats.jackpot_winners > 0 ? d.stats.jackpot_winners + ' perfect prediction(s)!' : 'No jackpot winner.'));
+        await refreshState();
+        showScreen('admin');
+    } catch (e) {
+        toast(e.message || 'Failed to resolve round', 'error');
     }
 }
 

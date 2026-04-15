@@ -143,7 +143,7 @@ class RoundSyncService
         }
     }
 
-    private function createNextRound(Round $round): void
+    public function createNextRound(Round $round): void
     {
         $nextNumber = $round->number + 1;
         $season = $round->season;

@@ -6,12 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Round;
 use App\Models\Season;
 use App\Services\RoundResolveService;
+use App\Services\RoundSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class AdminRoundController extends Controller
 {
-    public function __construct(private RoundResolveService $resolver) {}
+    public function __construct(
+        private RoundResolveService $resolver,
+        private RoundSyncService $sync,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -71,6 +76,15 @@ class AdminRoundController extends Controller
         }
 
         $stats = $this->resolver->resolve($round);
+
+        try {
+            $this->sync->createNextRound($round);
+        } catch (\Throwable $e) {
+            Log::warning('Manual resolve: next round creation failed', [
+                'round_id' => $round->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         return response()->json(['message' => 'Round resolved', 'stats' => $stats]);
     }
