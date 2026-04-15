@@ -35,7 +35,7 @@ class StateController extends Controller
 
         if ($season) {
             $round = Round::where('season_id', $season->id)
-                ->whereIn('status', ['active', 'locked'])
+                ->whereIn('status', ['pending', 'active', 'locked'])
                 ->with('fixtures')
                 ->first();
 
