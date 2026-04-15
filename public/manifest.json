@@ -3,6 +3,7 @@
     "name": "Tipping Pool",
     "short_name": "Tipping Pool",
     "description": "Private football prediction pool — predict, win, repeat.",
+    "version": "1.0.1",
     "start_url": "/",
     "scope": "/",
     "display": "standalone",
