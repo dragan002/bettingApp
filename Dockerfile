@@ -1,7 +1,7 @@
 FROM php:8.4-cli
 
 RUN apt-get update && apt-get install -y \
-    libsqlite3-dev libpq-dev libzip-dev zip unzip git curl \
+    libsqlite3-dev libpq-dev libzip-dev zip unzip git curl postgresql-client \
     && docker-php-ext-install pdo pdo_sqlite pdo_pgsql pgsql zip pcntl bcmath \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -28,4 +28,4 @@ RUN mkdir -p /data storage/logs storage/framework/cache \
 
 EXPOSE ${PORT:-8080}
 
-CMD ["sh", "-c", "php artisan config:clear && php artisan package:discover --ansi && php artisan migrate --force && php artisan schedule:work --no-interaction & php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"]
+CMD ["sh", "-c", "set -e && php artisan config:clear && php artisan package:discover --ansi && php artisan migrate --force && php artisan schedule:work --no-interaction & exec php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"]

@@ -10,7 +10,7 @@ A private football prediction pool for ~15 people. Each gameweek every player pr
 
 **Deployment:** Shared Laravel server (Railway.app) — all players connect via browser. NativePHP Android APK also exists for local/single-device use, but the server deployment is the intended multi-player path.
 
-**Stack:** Laravel 13 / PHP 8.4, NativePHP Mobile v3.2, SQLite, Blade SPA, Vanilla JS, Tailwind CSS v4, Vite, Pest v4 (via PHPUnit 12).
+**Stack:** Laravel 13 / PHP 8.4, PostgreSQL (production) / SQLite (local dev), Blade SPA, Vanilla JS, Tailwind CSS v4, Vite, Pest v4 (via PHPUnit 12).
 
 ---
 
@@ -58,7 +58,7 @@ The entire frontend lives in **one file**: `resources/views/welcome.blade.php`.
 - Middleware aliases registered in `bootstrap/app.php`: `auth.token` (TokenAuth), `admin.only` (AdminOnly)
 - `TokenAuth` reads `Authorization: Bearer {token}`, looks up `player_tokens`, attaches player to `$request->attributes->get('player')`
 - Services bound as singletons in `AppServiceProvider::register()`
-- SQLite WAL mode enabled in `AppServiceProvider::boot()`
+- SQLite WAL mode enabled in `AppServiceProvider::boot()` — guarded, no-op in production (PostgreSQL)
 
 ### State Flow
 
@@ -116,7 +116,7 @@ The system is mostly hands-off after a season is created:
 3. **Results sync** (every 3 hours) → `RoundSyncService::syncResults()` updates fixture scores, then calls `maybeAutoResolve()`.
 4. **Auto-resolve** → when all non-cancelled/postponed fixtures are `finished`, calls `RoundResolveService::resolve()` then `createNextRound()` (which fetches fixtures for the next matchday). Errors are caught and logged — auto-resolve failure does not crash the sync.
 5. **Entry charge** — two paths: auto-charged via `PredictionController` when a player's entry becomes complete; or manually via `AdminChargeController`. Both have `alreadyCharged` guards.
-6. **Database backup** (daily 03:00 UTC) → `backup:database` command copies `database.sqlite` to Cloudflare R2 bucket `bettingapp-backups`, keeps last 30 daily backups. Implemented in `app/Console/Commands/BackupDatabase.php`, uses the `r2` disk in `config/filesystems.php`.
+6. **Database backup** (daily 03:00 UTC) → `backup:database` command backs up to Cloudflare R2 bucket `bettingapp-backups`, keeps last 30 daily backups. Implemented in `app/Console/Commands/BackupDatabase.php`. Note: was written for SQLite — may need updating for PostgreSQL dump format.
 
 ### API Routes (all in `routes/web.php`)
 
@@ -147,11 +147,12 @@ The system is mostly hands-off after a season is created:
 
 ### Database
 
-- SQLite only — `database/database.sqlite`
-- No `enum` columns (use `string` with validation), no MySQL-specific types
+- **Production:** PostgreSQL on Railway (managed service, persists across deployments). `DB_CONNECTION=pgsql`, `DATABASE_URL` injected automatically by Railway.
+- **Local dev:** SQLite — `database/database.sqlite`. Never change `DB_CONNECTION` locally.
+- No `enum` columns (use `string` with validation), no MySQL/SQLite-specific types or raw SQL
 - Never modify existing migrations — create new alter migrations
 - Tests run against in-memory SQLite (configured in `phpunit.xml`)
-- The APK bundles a fresh empty database. On first launch, migrations run automatically — including `2026_04_07_000010_seed_default_admin.php` which creates the admin player if `Player::count() === 0`.
+- `2026_04_07_000010_seed_default_admin.php` creates the default admin player if `Player::count() === 0` — runs once on fresh database
 
 ### Key business rules
 
@@ -218,38 +219,40 @@ Currently **single-tenant** — one database, one shared pool per deployment. Tw
 
 ## Railway Deployment
 
-Deploys via `Dockerfile` using PHP 8.4-cli. Required environment variables:
+Deploys via nixpacks (auto-detected PHP/Laravel). Start command defined in `nixpacks.toml` → runs `start.sh` which calls `php artisan migrate --force` then `php artisan serve`.
+
+Required environment variables:
 
 ```
 APP_ENV=production
 APP_KEY=base64:...
-APP_URL=https://your-railway-url.up.railway.app
-DB_CONNECTION=sqlite
-DB_DATABASE=/data/database.sqlite   # persistent volume at /data
-SESSION_DRIVER=file
+APP_URL=https://bettingapp-production-745e.up.railway.app
+DB_CONNECTION=pgsql
+DATABASE_URL=postgresql://...       # auto-injected by Railway PostgreSQL service
+SESSION_DRIVER=cookie
 QUEUE_CONNECTION=sync
 FOOTBALL_DATA_API_KEY=...
-R2_ACCESS_KEY_ID=...                # Cloudflare R2 API token Access Key ID
-R2_SECRET_ACCESS_KEY=...            # Cloudflare R2 API token Secret Access Key
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
 R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 R2_BUCKET=bettingapp-backups
 ```
 
-- SQLite lives on a Railway persistent volume — not inside the container
-- `composer install --no-scripts` at build time; `package:discover` runs at startup
-- **Do not set a Custom Start Command in Railway** — the Dockerfile CMD handles everything (migrations, cache warm, scheduler, web server)
-- To run a one-off artisan command on Railway: use `railway run php artisan <command>` via the Railway CLI
+- PostgreSQL is a separate Railway service — data persists independently of app deployments
+- `start.sh` runs on every deploy: only runs pending migrations, never wipes data
+- To run a one-off artisan command: use Railway CLI `railway run php artisan <command>`
+- Daily database backup to Cloudflare R2 still runs via scheduler (`backup:database` command) — update it if PostgreSQL backup strategy changes
 
 ---
 
-## Android Build Critical Gotchas
+## Android / Play Store
 
-See `../setup_android_lessons.md` for full details.
+The Android app is a **TWA (Trusted Web Activity)** — generated by PWABuilder from the Railway URL. It is not a NativePHP build.
 
-1. `native:install` wipes `nativephp/android/local.properties` — re-set `sdk.dir` after every install
-2. `NATIVEPHP_APP_VERSION=1.0.0` in `.env` — never use `DEBUG`
-3. Remove `URL::forceHttps()` from `AppServiceProvider::boot()` if present
-4. Composer build timeout is 300s — change to 900s in `vendor/nativephp/mobile/src/Traits/PreparesBuild.php` after every `composer update`
-5. Run `native:run android` before Gradle — it substitutes `REPLACE_APP_ID` and other placeholders
-6. `ANDROID_HOME`: `export ANDROID_HOME="C:/Users/pclogiklabs/AppData/Local/Android/Sdk"`
-7. NativePHP APK has isolated SQLite per device — not suitable for multi-player use. Use Railway for shared gameplay.
+- PWA manifest: `public/manifest.json`
+- Service worker: `public/sw.js`
+- Domain verification: `public/.well-known/assetlinks.json`
+- Play Store package: `app.railway.up.bettingapp_production_745e.twa`
+- Signing keystore: `../playstore/signing.keystore` — required for every update
+
+To publish an update to Play Store: go to PWABuilder, use existing keystore, increment version code, upload new `.aab` to Play Console.
