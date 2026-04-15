@@ -99,6 +99,9 @@
                         <div id="home-completion-counter" style="font-size:13px;color:#64748b;margin-bottom:12px;display:none;"></div>
                         <div id="home-prediction-status"></div>
                         <button id="home-predict-btn" class="btn btn-primary btn-full" style="margin-top:12px;display:none;">Make Predictions →</button>
+                        <div id="home-no-fixtures-help" style="display:none" class="text-center text-sm text-slate-400 mt-2">
+                            No fixtures synced yet — go to Admin → Sync Fixtures
+                        </div>
                     </div>
                 </div>
 
@@ -933,6 +936,11 @@ function renderHome() {
     predictBtn.style.display = (locked || total === 0) ? 'none' : 'block';
     predictBtn.onclick = () => showScreen('predict');
 
+    const noFixturesHelp = document.getElementById('home-no-fixtures-help');
+    if (noFixturesHelp) {
+        noFixturesHelp.style.display = (total === 0 && state.player?.isAdmin) ? 'block' : 'none';
+    }
+
     renderTicket();
 
     // Streak highlight — find player with highest onFire streak >= 2
@@ -1624,7 +1632,7 @@ function editRound(roundId) {
     }
 
     if (r?.status) document.getElementById('round-form-status').value = r.status;
-    document.getElementById('round-form-resolve-wrap').style.display = (r && r.status === 'locked') ? 'block' : 'none';
+    document.getElementById('round-form-resolve-wrap').style.display = (r && r.isLocked && r.status !== 'resolved' && r.status !== 'pending') ? 'block' : 'none';
     document.getElementById('round-form-save').onclick = saveRoundForm;
 }
 
