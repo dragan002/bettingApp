@@ -36,6 +36,8 @@ class StateController extends Controller
         if ($season) {
             $round = Round::where('season_id', $season->id)
                 ->whereIn('status', ['pending', 'active', 'locked'])
+                ->orderByRaw("CASE status WHEN 'active' THEN 1 WHEN 'pending' THEN 2 WHEN 'locked' THEN 3 END")
+                ->orderByDesc('number')
                 ->with('fixtures')
                 ->first();
 
