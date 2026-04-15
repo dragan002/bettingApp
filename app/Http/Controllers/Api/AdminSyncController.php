@@ -46,4 +46,29 @@ class AdminSyncController extends Controller
 
         return response()->json(['message' => "Updated {$count} results", 'count' => $count]);
     }
+
+    public function apiStatus(): JsonResponse
+    {
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(10)
+                ->withHeaders(['X-Auth-Token' => config('services.football_data.key', '')])
+                ->get('https://api.football-data.org/v4/competitions/PL');
+
+            return response()->json([
+                'status' => $response->status(),
+                'ok' => $response->successful(),
+                'message' => $response->successful()
+                    ? 'API is reachable'
+                    : 'API returned ' . $response->status() . ': ' . ($response->json('message') ?? $response->body()),
+                'requestsAvailable' => $response->header('X-Requests-Available-Minute'),
+            ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            return response()->json([
+                'status' => 0,
+                'ok' => false,
+                'message' => 'Timeout — API unreachable from server',
+                'requestsAvailable' => null,
+            ]);
+        }
+    }
 }

@@ -80,6 +80,7 @@ Route::prefix('api')->middleware('auth.token')->group(function () {
         // Sync
         Route::post('/sync/fixtures', [AdminSyncController::class, 'syncFixtures']);
         Route::post('/sync/results', [AdminSyncController::class, 'syncResults']);
+        Route::get('/api-status', [AdminSyncController::class, 'apiStatus']);
 
         // Season
         Route::post('/season', [AdminSeasonController::class, 'store']);

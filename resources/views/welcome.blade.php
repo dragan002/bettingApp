@@ -269,6 +269,7 @@
                         <button class="btn btn-secondary" onclick="showScreen('admin-rounds');renderAdminRounds()">Manage Rounds</button>
                         <button id="admin-sync-fixtures-btn" class="btn btn-secondary" style="display:none;">Sync Fixtures</button>
                         <button id="admin-sync-results-btn" class="btn btn-secondary" style="display:none;">Sync Results</button>
+                        <button id="admin-check-api-btn" class="btn btn-secondary" onclick="adminCheckApi()">Check API Status</button>
                     </div>
                 </div>
 
@@ -1458,6 +1459,23 @@ function adminSyncResults() {
     });
 }
 
+async function adminCheckApi() {
+    const btn = document.getElementById('admin-check-api-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    try {
+        const d = await api('GET', '/api/admin/api-status');
+        const msg = d.ok
+            ? `✓ API OK (${d.requestsAvailable ?? '?'} req/min remaining)`
+            : `✗ ${d.message}`;
+        toast(msg, !d.ok);
+    } catch (e) {
+        toast(e.message || 'API check failed', true);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Check API Status';
+    }
+}
 
 async function adminStartSettlement() {
     if (!confirm('Move the season to pending settlement? Players will not be able to make new predictions.')) return;
