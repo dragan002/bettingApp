@@ -26,6 +26,21 @@ Route::get('/', fn () => view('welcome'));
 // Privacy policy (required for Play Store)
 Route::get('/privacy', fn () => view('privacy'));
 
+// Temporary DB diagnostic — remove after confirming PostgreSQL works
+Route::get('/db-check', function () {
+    $conn = config('database.default');
+    $db   = config("database.connections.{$conn}.database");
+    $host = config("database.connections.{$conn}.host", 'n/a');
+    $players = \App\Models\Player::count();
+    return response()->json([
+        'connection' => $conn,
+        'database'   => $db,
+        'host'       => $host,
+        'player_count' => $players,
+        'database_url_set' => !empty(env('DATABASE_URL')),
+    ]);
+});
+
 // Auth (no token required)
 Route::prefix('api/auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
