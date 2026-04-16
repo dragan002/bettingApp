@@ -180,8 +180,13 @@
             <h2 id="results-title">Round Results</h2>
             <div style="width:44px;"></div>
         </div>
-        <div class="screen-content" style="padding:16px 0 80px;">
-            <div id="results-fixtures" style="padding:0 16px 16px;"></div>
+        <div class="screen-content" style="padding:0 0 80px;">
+            <div id="results-nav" style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #334155;">
+                <button id="results-prev" onclick="navigateResults(-1)" style="background:none;border:1px solid #334155;border-radius:8px;padding:6px 14px;color:#94a3b8;font-size:13px;cursor:pointer;min-width:44px;min-height:36px;">← Prev</button>
+                <span id="results-nav-pos" style="font-size:12px;color:#64748b;"></span>
+                <button id="results-next" onclick="navigateResults(1)" style="background:none;border:1px solid #334155;border-radius:8px;padding:6px 14px;color:#94a3b8;font-size:13px;cursor:pointer;min-width:44px;min-height:36px;">Next →</button>
+            </div>
+            <div id="results-fixtures" style="padding:16px 16px 16px;"></div>
             <div id="results-entries"></div>
         </div>
     </div>
@@ -914,7 +919,7 @@ function renderHome() {
         counterEl.style.display = 'none';
     }
 
-    const fixtures = (state.round.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled');
+    const fixtures = (state.round.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled' && f.status !== 'finished');
     const predicted = fixtures.filter(f => state.predictions[f.id]).length;
     const total = fixtures.length;
     const complete = predicted === total && total > 0;
@@ -990,7 +995,7 @@ function renderTicket() {
     const ticketEl = document.getElementById('home-ticket');
     if (!state.round || !state.round.fixtures) { ticketEl.style.display = 'none'; return; }
 
-    const fixtures = state.round.fixtures.filter(f => f.status !== 'postponed' && f.status !== 'cancelled');
+    const fixtures = state.round.fixtures.filter(f => f.status !== 'postponed' && f.status !== 'cancelled' && f.status !== 'finished');
     const predicted = fixtures.filter(f => state.predictions[f.id]);
 
     if (predicted.length === 0) { ticketEl.style.display = 'none'; return; }
@@ -1042,7 +1047,7 @@ function renderPredict() {
 
     document.getElementById('predict-title').textContent = 'Matchweek ' + state.round.number;
     const locked = state.round.isLocked;
-    const fixtures = (state.round.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled');
+    const fixtures = (state.round.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled' && f.status !== 'finished');
 
     if (locked) {
         document.getElementById('predict-lock-bar').style.display = 'none';
@@ -1126,7 +1131,7 @@ function setPick(fixtureId, pick, btnEl) {
         card.querySelectorAll('.pick-btn').forEach(b => b.classList.remove('selected'));
         btnEl.classList.add('selected');
     }
-    const fixtures = (state.round?.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled');
+    const fixtures = (state.round?.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled' && f.status !== 'finished');
     updatePredictProgress(fixtures);
 }
 
@@ -1137,7 +1142,7 @@ function updatePredictProgress(fixtures) {
 
 async function submitPredictions() {
     const btn = document.getElementById('predict-submit');
-    const fixtures = (state.round?.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled');
+    const fixtures = (state.round?.fixtures || []).filter(f => f.status !== 'postponed' && f.status !== 'cancelled' && f.status !== 'finished');
     const predicted = fixtures.filter(f => state.predictions[f.id]).length;
 
     if (predicted === 0) { toast('Make at least one prediction', 'error'); return; }
@@ -1171,17 +1176,60 @@ async function submitPredictions() {
 // ================================================================
 //  RESULTS SCREEN
 // ================================================================
-async function loadAndShowResults() {
-    if (!state.round) { toast('No active round', 'error'); return; }
+let resultsViewRoundId = null;
+
+function buildResultsRoundList() {
+    const rounds = [];
+    (state.history || []).forEach(r => rounds.push({ id: r.id, number: r.number }));
+    if (state.round && !rounds.find(r => r.id === state.round.id)) {
+        rounds.push({ id: state.round.id, number: state.round.number });
+    }
+    rounds.sort((a, b) => a.number - b.number);
+    return rounds;
+}
+
+function renderResultsNav(rounds) {
+    const idx = rounds.findIndex(r => r.id === resultsViewRoundId);
+    const hasPrev = idx > 0;
+    const hasNext = idx < rounds.length - 1;
+    const prevBtn = document.getElementById('results-prev');
+    const nextBtn = document.getElementById('results-next');
+    const pos = document.getElementById('results-nav-pos');
+    if (prevBtn) { prevBtn.disabled = !hasPrev; prevBtn.style.opacity = hasPrev ? '1' : '0.3'; }
+    if (nextBtn) { nextBtn.disabled = !hasNext; nextBtn.style.opacity = hasNext ? '1' : '0.3'; }
+    if (pos) pos.textContent = rounds.length > 1 ? (idx + 1) + ' / ' + rounds.length : '';
+    const nav = document.getElementById('results-nav');
+    if (nav) nav.style.display = rounds.length > 1 ? 'flex' : 'none';
+}
+
+function navigateResults(direction) {
+    const rounds = buildResultsRoundList();
+    const idx = rounds.findIndex(r => r.id === resultsViewRoundId);
+    const nextIdx = idx + direction;
+    if (nextIdx >= 0 && nextIdx < rounds.length) {
+        loadAndShowResults(rounds[nextIdx].id);
+    }
+}
+
+async function loadAndShowResults(roundId = null) {
+    const rounds = buildResultsRoundList();
+    if (!roundId) {
+        roundId = state.round ? state.round.id : (rounds.length ? rounds[rounds.length - 1].id : null);
+    }
+    if (!roundId) { toast('No rounds to view', 'error'); return; }
+    resultsViewRoundId = roundId;
+
     showScreen('results');
-    document.getElementById('results-title').textContent = 'Matchweek ' + state.round.number;
+    renderResultsNav(rounds);
+    document.getElementById('results-title').textContent = 'Results';
     document.getElementById('results-fixtures').innerHTML =
         '<div style="color:#94a3b8;text-align:center;padding:24px;"><span class="spinner"></span></div>';
     document.getElementById('results-entries').innerHTML = '';
 
     try {
-        const data = await api('GET', '/api/round/' + state.round.id + '/results');
+        const data = await api('GET', '/api/round/' + roundId + '/results');
         state.roundResults = data;
+        document.getElementById('results-title').textContent = 'Matchweek ' + data.round.number;
         renderRoundResults(data);
     } catch(e) {
         document.getElementById('results-fixtures').innerHTML =
