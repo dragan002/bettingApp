@@ -30,10 +30,11 @@ class RoundResolveService
                 $result = $fixture->getResult();
                 if ($result === null) continue;
 
-                $count = Prediction::where('fixture_id', $fixture->id)
-                    ->update(['is_correct' => DB::raw("CASE WHEN pick = '{$result}' THEN 1 ELSE 0 END")]);
-
-                $stats['predictions_scored'] += $count;
+                $predictions = Prediction::where('fixture_id', $fixture->id)->get();
+                foreach ($predictions as $prediction) {
+                    $prediction->update(['is_correct' => $prediction->pick === $result]);
+                }
+                $stats['predictions_scored'] += $predictions->count();
             }
 
             // Active (non-cancelled/postponed) finished fixtures only
