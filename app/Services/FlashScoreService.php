@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,9 @@ class FlashScoreService
     ];
 
     private string $apiKey;
+
     private string $apiHost = 'flashscore4.p.rapidapi.com';
+
     private string $baseUrl = 'https://flashscore4.p.rapidapi.com/api/flashscore/v2';
 
     public function __construct()
@@ -55,7 +58,7 @@ class FlashScoreService
                     'season_id' => $ids['season_id'],
                     'page' => 1,
                 ]);
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        } catch (ConnectionException $e) {
             Log::warning('FlashScore getNextMatchdayFixtures timeout', [
                 'leagueId' => $leagueId,
                 'error' => $e->getMessage(),
@@ -108,6 +111,75 @@ class FlashScoreService
         return $matchday;
     }
 
+    /**
+     * Fetch recent finished results and return them as a map keyed by match_id.
+     * Fetches up to 2 pages (100 results) to cover the most recent gameweek.
+     *
+     * @return array<string, array{home_score: int, away_score: int, status: string}>
+     */
+    public function getRecentResultsMap(string $leagueId): array
+    {
+        if (! $this->isConfigured($leagueId)) {
+            return [];
+        }
+
+        $ids = self::LEAGUE_MAP[$leagueId];
+        $map = [];
+
+        foreach ([1, 2] as $page) {
+            try {
+                $response = Http::timeout(15)
+                    ->withHeaders([
+                        'x-rapidapi-host' => $this->apiHost,
+                        'x-rapidapi-key' => $this->apiKey,
+                    ])
+                    ->get("{$this->baseUrl}/tournaments/results", [
+                        'tournament_template_id' => $ids['template_id'],
+                        'season_id' => $ids['season_id'],
+                        'page' => $page,
+                    ]);
+            } catch (ConnectionException $e) {
+                Log::warning('FlashScore getRecentResultsMap timeout', [
+                    'leagueId' => $leagueId,
+                    'page' => $page,
+                    'error' => $e->getMessage(),
+                ]);
+                break;
+            }
+
+            if (! $response->successful()) {
+                Log::error('FlashScore results API error', [
+                    'leagueId' => $leagueId,
+                    'page' => $page,
+                    'status' => $response->status(),
+                ]);
+                break;
+            }
+
+            foreach ($response->json() ?? [] as $result) {
+                $matchId = $result['match_id'] ?? null;
+                $scores = $result['scores'] ?? null;
+
+                if ($matchId === null || $scores === null) {
+                    continue;
+                }
+
+                $map[$matchId] = [
+                    'home_score' => $scores['home'],
+                    'away_score' => $scores['away'],
+                    'status' => 'finished',
+                ];
+            }
+
+            // Stop paging if the page returned fewer than 50 results
+            if (count($response->json() ?? []) < 50) {
+                break;
+            }
+        }
+
+        return $map;
+    }
+
     public function mapMatchToFixture(array $match): array
     {
         $kickoff = isset($match['timestamp'])
@@ -115,7 +187,7 @@ class FlashScoreService
             : null;
 
         return [
-            'external_id' => 'fs_' . $match['match_id'],
+            'external_id' => 'fs_'.$match['match_id'],
             'home_team' => $match['home_team']['name'],
             'away_team' => $match['away_team']['name'],
             'home_score' => null,

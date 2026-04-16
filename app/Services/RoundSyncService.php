@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Fixture;
 use App\Models\Round;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class RoundSyncService
@@ -63,7 +64,7 @@ class RoundSyncService
 
             if ($earliest !== null) {
                 try {
-                    $earliestCarbon = \Illuminate\Support\Carbon::parse($earliest);
+                    $earliestCarbon = Carbon::parse($earliest);
 
                     if ($round->locks_at === null || ! $round->locks_at->eq($earliestCarbon)) {
                         $round->update(['locks_at' => $earliestCarbon]);
@@ -90,22 +91,53 @@ class RoundSyncService
             throw new \RuntimeException('Round has no associated season');
         }
 
-        $matches = $this->api->getFinishedMatches($season->league_id, $round->number);
-
         $updated = 0;
 
-        foreach ($matches as $match) {
-            $data = $this->api->mapMatchToFixture($match);
+        // Check whether this round's fixtures came from FlashScore (fs_ prefix)
+        $hasFlashScoreFixtures = Fixture::where('round_id', $round->id)
+            ->where('external_id', 'like', 'fs_%')
+            ->exists();
 
-            $affected = Fixture::where('round_id', $round->id)
-                ->where('external_id', $data['external_id'])
-                ->update([
-                    'home_score' => $data['home_score'],
-                    'away_score' => $data['away_score'],
-                    'status' => $data['status'],
+        if ($hasFlashScoreFixtures && $this->flashScore->isConfigured($season->league_id)) {
+            Log::info('Using FlashScore for results sync', ['round_id' => $round->id]);
+
+            $resultsMap = $this->flashScore->getRecentResultsMap($season->league_id);
+
+            $fixtures = Fixture::where('round_id', $round->id)
+                ->where('external_id', 'like', 'fs_%')
+                ->get();
+
+            foreach ($fixtures as $fixture) {
+                $matchId = str_replace('fs_', '', $fixture->external_id);
+
+                if (! isset($resultsMap[$matchId])) {
+                    continue;
+                }
+
+                $result = $resultsMap[$matchId];
+                $fixture->update([
+                    'home_score' => $result['home_score'],
+                    'away_score' => $result['away_score'],
+                    'status' => $result['status'],
                 ]);
+                $updated++;
+            }
+        } else {
+            $matches = $this->api->getFinishedMatches($season->league_id, $round->number);
 
-            $updated += $affected;
+            foreach ($matches as $match) {
+                $data = $this->api->mapMatchToFixture($match);
+
+                $affected = Fixture::where('round_id', $round->id)
+                    ->where('external_id', $data['external_id'])
+                    ->update([
+                        'home_score' => $data['home_score'],
+                        'away_score' => $data['away_score'],
+                        'status' => $data['status'],
+                    ]);
+
+                $updated += $affected;
+            }
         }
 
         // Auto-resolve when all non-cancelled/postponed fixtures are finished
@@ -167,6 +199,7 @@ class RoundSyncService
 
         if ($exists) {
             Log::warning("Auto next-round skipped: round {$nextNumber} already exists for season {$season->id}");
+
             return;
         }
 
