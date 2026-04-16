@@ -32,6 +32,19 @@ class RoundSyncService
                 'round_id' => $round->id,
                 'league_id' => $season->league_id,
             ]);
+
+            // Remove any football-data.org fixtures to avoid duplication with FlashScore fixtures
+            $deleted = Fixture::where('round_id', $round->id)
+                ->where('external_id', 'not like', 'fs_%')
+                ->delete();
+
+            if ($deleted > 0) {
+                Log::info('Removed football-data.org fixtures before FlashScore sync', [
+                    'round_id' => $round->id,
+                    'deleted' => $deleted,
+                ]);
+            }
+
             $matches = $this->flashScore->getNextMatchdayFixtures($season->league_id);
             $useFlashScore = true;
         }
