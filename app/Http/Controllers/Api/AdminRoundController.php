@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Round;
 use App\Models\Season;
+use App\Models\SeasonPoints;
+use App\Models\SeasonRoundPoints;
 use App\Services\RoundResolveService;
 use App\Services\RoundSyncService;
 use Illuminate\Http\JsonResponse;
@@ -87,5 +89,35 @@ class AdminRoundController extends Controller
         }
 
         return response()->json(['message' => 'Round resolved', 'stats' => $stats]);
+    }
+
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        $round = Round::findOrFail($id);
+
+        // If the round was resolved, reverse its contribution to season_points
+        if ($round->status === 'resolved') {
+            $roundPoints = SeasonRoundPoints::where('round_id', $round->id)->get();
+
+            foreach ($roundPoints as $srp) {
+                SeasonPoints::where('season_id', $round->season_id)
+                    ->where('player_id', $srp->player_id)
+                    ->each(function ($sp) use ($srp) {
+                        $sp->decrement('points', $srp->points);
+                        $sp->decrement('rounds_played', 1);
+                    });
+            }
+        }
+
+        Log::info('Admin deleted round', [
+            'round_id' => $round->id,
+            'round_number' => $round->number,
+            'status' => $round->status,
+            'admin_id' => $request->attributes->get('player')?->id,
+        ]);
+
+        $round->delete();
+
+        return response()->json(['message' => 'Round deleted']);
     }
 }

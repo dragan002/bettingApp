@@ -76,6 +76,7 @@ Route::prefix('api')->middleware('auth.token')->group(function () {
         Route::post('/rounds', [AdminRoundController::class, 'store']);
         Route::put('/rounds/{id}', [AdminRoundController::class, 'update']);
         Route::post('/rounds/{id}/resolve', [AdminRoundController::class, 'resolve']);
+        Route::delete('/rounds/{id}', [AdminRoundController::class, 'destroy']);
 
         // Sync
         Route::post('/sync/fixtures', [AdminSyncController::class, 'syncFixtures']);

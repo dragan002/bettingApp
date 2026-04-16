@@ -1660,19 +1660,33 @@ async function renderAdminRounds() {
             return;
         }
         document.getElementById('admin-rounds-list').innerHTML = state.adminRounds.map(r =>
-            '<div class="admin-item" onclick="editRound(' + r.id + ')">' +
-                '<div style="flex:1;">' +
+            '<div class="admin-item">' +
+                '<div style="flex:1;cursor:pointer;" onclick="editRound(' + r.id + ')">' +
                     '<div style="font-size:16px;font-weight:600;color:#f1f5f9;">Matchweek ' + r.number + '</div>' +
                     '<div style="font-size:13px;color:#94a3b8;margin-top:2px;">' +
                         r.status + ' · ' +
                         (r.locksAt ? new Date(r.locksAt).toLocaleDateString() : 'No lock time') + '</div>' +
                 '</div>' +
                 roundStatusBadge(r.status, r.isLocked) +
+                '<button onclick="event.stopPropagation();deleteRound(' + r.id + ',' + r.number + ')" ' +
+                    'style="margin-left:10px;background:none;border:1px solid #ef4444;border-radius:6px;color:#ef4444;padding:4px 10px;font-size:12px;cursor:pointer;">Delete</button>' +
             '</div>'
         ).join('');
     } catch(e) {
         document.getElementById('admin-rounds-list').innerHTML =
             '<div style="color:#ef4444;text-align:center;padding:16px;">Failed to load</div>';
+    }
+}
+
+async function deleteRound(roundId, number) {
+    if (!confirm('Delete Matchweek ' + number + '? This removes all its fixtures, predictions and entries. This cannot be undone.')) return;
+    try {
+        await api('DELETE', '/api/admin/rounds/' + roundId);
+        toast('Matchweek ' + number + ' deleted', 'success');
+        await refreshState();
+        renderAdminRounds();
+    } catch(e) {
+        toast(e.message || 'Delete failed', 'error');
     }
 }
 
