@@ -73,7 +73,8 @@ class RoundSyncAutoResolveTest extends TestCase
         $resolver = app(RoundResolveService::class);
         $api = $this->createMock(FootballDataService::class);
         $api->method('getFinishedMatches')->willReturn([]);
-        return new RoundSyncService($api, $resolver);
+        $flashScore = app(\App\Services\FlashScoreService::class);
+        return new RoundSyncService($api, $flashScore, $resolver);
     }
 
     // ================================================================

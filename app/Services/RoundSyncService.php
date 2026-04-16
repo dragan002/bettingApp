@@ -10,6 +10,7 @@ class RoundSyncService
 {
     public function __construct(
         private FootballDataService $api,
+        private FlashScoreService $flashScore,
         private RoundResolveService $resolver,
     ) {}
 
@@ -23,11 +24,23 @@ class RoundSyncService
         }
 
         $matches = $this->api->getMatches($season->league_id, $round->number);
+        $useFlashScore = false;
+
+        if (empty($matches) && $this->flashScore->isConfigured($season->league_id)) {
+            Log::info('football-data.org returned no fixtures, trying FlashScore fallback', [
+                'round_id' => $round->id,
+                'league_id' => $season->league_id,
+            ]);
+            $matches = $this->flashScore->getNextMatchdayFixtures($season->league_id);
+            $useFlashScore = true;
+        }
 
         $synced = 0;
 
         foreach ($matches as $match) {
-            $data = $this->api->mapMatchToFixture($match);
+            $data = $useFlashScore
+                ? $this->flashScore->mapMatchToFixture($match)
+                : $this->api->mapMatchToFixture($match);
 
             Fixture::updateOrCreate(
                 ['round_id' => $round->id, 'external_id' => $data['external_id']],

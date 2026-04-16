@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\BadgeService;
+use App\Services\FlashScoreService;
 use App\Services\FootballDataService;
 use App\Services\RoundResolveService;
 use App\Services\RoundSyncService;
@@ -18,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(FootballDataService::class);
+        $this->app->singleton(FlashScoreService::class);
         $this->app->singleton(RoundSyncService::class);
         $this->app->singleton(BadgeService::class);
         $this->app->singleton(StreakService::class);
