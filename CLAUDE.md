@@ -24,6 +24,8 @@ php artisan test --filter=TestName   # Run a single test
 php artisan migrate       # Run pending migrations
 vendor/bin/pint --dirty   # Fix code style (run before commit)
 php artisan backup:database   # Manual backup to Cloudflare R2 (runs automatically at 03:00 UTC)
+php artisan fixtures:cleanup-duplicates            # Remove football-data.org fixtures when a round also has FlashScore fixtures
+php artisan fixtures:cleanup-duplicates --dry-run  # Preview what would be deleted
 php artisan native:jump   # Preview on phone via Jump app
 php artisan native:run android <udid> --build=debug   # Full Android build
 ```
@@ -34,6 +36,40 @@ APP_URL=http://localhost:8000
 NATIVEPHP_APP_VERSION=1.0.0
 FOOTBALL_DATA_API_KEY=your_key_here
 ```
+
+---
+
+## Design System
+
+**Theme:** Kafana — warm parchment café board aesthetic. All colors are CSS custom properties defined in `resources/css/app.css`. **Never use hardcoded hex colors in new HTML or JS template strings — always use CSS vars.**
+
+```css
+--bg: #f0e6d2       /* parchment */
+--bg-deep: #e6d9bb
+--surface: #fdf6e6
+--surface-alt: #ebdfc4
+--ink: #1f1810      /* espresso — primary text */
+--ink-soft: #5a4938
+--ink-faint: #8a7860
+--rule: #3a2818     /* border color everywhere */
+--accent: #a8341a   /* oxblood — CTAs, active states */
+--accent-deep: #7a2412
+--gold: #b08a3e
+--green: #2e5d3a    /* correct predictions, positive balances */
+--blue: #1d3557
+--win: #2e5d3a      /* correct pick */
+--lose: #a8341a     /* wrong pick, negative balance */
+--draw: #b08a3e
+```
+
+**Fonts** (loaded from Google Fonts):
+- `'Fraunces', 'Times New Roman', serif` — headers, big numbers, pick buttons
+- `'DM Mono', ui-monospace, monospace` — labels, eyebrows, mono values
+- `'Inter', system-ui, sans-serif` — body text
+
+**Design prototype** lives at `../design/` (parent repo, not in git). The `src/` subfolder has the original React/JSX prototype screens — useful reference when building new screens or components.
+
+**Key CSS classes:** `.card`, `.btn` / `.btn-primary` / `.btn-secondary` / `.btn-sm`, `.input`, `.field-label`, `.pick-btn` (with `.selected` / `.correct` / `.wrong`), `.fixture-card`, `.balance-pill`, `.badge-kf` (with colour variants), `.screen-header`, `.back-btn`, `.stamp`, `.lb-row`.
 
 ---
 
@@ -50,6 +86,8 @@ The entire frontend lives in **one file**: `resources/views/welcome.blade.php`.
 - All UI mutations are **optimistic**: update `state` and re-render, then `api()` fires in background
 - CSRF token from `<meta name="csrf-token">`, sent as `X-CSRF-TOKEN` on every fetch
 - Auth: bearer token stored in `localStorage`, resolved server-side via `player_tokens` table — no Laravel sessions
+
+**Login PIN numpad:** The login screen uses a visual numpad (not a password input). `_pinValue` (module-level string) is managed by `pinTap(d)` / `pinDel()` / `syncPin()` / `resetPin()`. `syncPin()` writes to the hidden `#login-pin` input and updates the four `.pin-dot` boxes. The existing `doLogin()` reads `#login-pin` normally — the numpad is purely a UI layer on top.
 
 ### Backend
 
@@ -114,7 +152,7 @@ Tiers: `kafa` (1) < `rakija` (2) < `zlato` (3). Only upgrades — never downgrad
 The system is mostly hands-off after a season is created:
 
 1. **Season created** → `AdminSeasonController::store()` calls `FootballDataService::getCurrentMatchday()` + `RoundSyncService::syncFixtures()`. Round created as `pending`, activated and `locks_at` set when fixtures arrive.
-2. **Fixtures sync** (daily 08:00 UTC, via `schedule:work`) → `RoundSyncService::syncFixtures()` upserts fixtures, activates pending round, updates `locks_at`.
+2. **Fixtures sync** (daily 08:00 UTC, via `schedule:work`) → `RoundSyncService::syncFixtures()` upserts fixtures, activates pending round, updates `locks_at`. If football-data.org returns empty, FlashScore is tried as fallback (deletes any existing football-data fixtures first to avoid duplication).
 3. **Results sync** (every 3 hours) → `RoundSyncService::syncResults()` updates fixture scores, then calls `maybeAutoResolve()`.
 4. **Auto-resolve** → when all non-cancelled/postponed fixtures are `finished`, calls `RoundResolveService::resolve()` then `createNextRound()` (which fetches fixtures for the next matchday). Errors are caught and logged — auto-resolve failure does not crash the sync.
 5. **Entry charge** — two paths: auto-charged via `PredictionController` when a player's entry becomes complete; or manually via `AdminChargeController`. Both have `alreadyCharged` guards.
@@ -142,6 +180,8 @@ The system is mostly hands-off after a season is created:
 | GET/POST | `/api/admin/rounds` | `AdminRoundController` |
 | PUT | `/api/admin/rounds/{id}` | `AdminRoundController::update` |
 | POST | `/api/admin/rounds/{id}/resolve` | `AdminRoundController::resolve` |
+| POST | `/api/admin/rounds/{id}/reset` | `AdminRoundController::reset` — deletes all fixtures/predictions/entries, re-syncs |
+| DELETE | `/api/admin/rounds/{id}` | `AdminRoundController::destroy` — deletes round; reverses season_points if resolved |
 | POST | `/api/admin/sync/fixtures` | `AdminSyncController::syncFixtures` |
 | POST | `/api/admin/sync/results` | `AdminSyncController::syncResults` |
 | POST | `/api/admin/charge-round` | `AdminChargeController::charge` |
@@ -161,7 +201,7 @@ The system is mostly hands-off after a season is created:
 | Table | Key constraint |
 |---|---|
 | `rounds` | `locks_at` timestamp — `isLocked()` returns true when past OR status is `locked`/`resolved` |
-| `fixtures` | `status` = scheduled/live/finished/postponed/cancelled — postponed/cancelled excluded from scoring |
+| `fixtures` | `status` = scheduled/live/finished/postponed/cancelled — postponed/cancelled/finished excluded from the predict screen; postponed/cancelled excluded from scoring |
 | `predictions` | `updateOrCreate` per player/fixture — re-checks lock inside DB transaction |
 | `round_entries` | `is_complete` = true only when all non-cancelled fixtures have a pick |
 | `season_points` | Leaderboard source — 1 pt per correct prediction, `rounds_played` incremented on resolve |
@@ -194,7 +234,8 @@ The system is mostly hands-off after a season is created:
 ## Services
 
 - **`FootballDataService`** — wraps football-data.org API. `FOOTBALL_DATA_API_KEY` optional — unauthenticated if absent (100 req/day). Maps API status strings and uses `shortName` for team names.
-- **`RoundSyncService`** — calls `FootballDataService`, upserts fixtures by `external_id`, activates pending round when fixtures arrive.
+- **`FlashScoreService`** — wraps RapidAPI FlashScore4 (`flashscore4.p.rapidapi.com`). `FLASHSCORE_API_KEY` required. `LEAGUE_MAP` const maps football-data league codes (e.g. `'PL'`) to FlashScore `template_id`/`season_id`. Key methods: `getNextMatchdayFixtures()` — detects matchday boundary by first repeated team; `getRecentResultsMap()` — fetches up to 2 pages of results keyed by `match_id`; `mapMatchToFixture()` — prefixes `external_id` with `fs_`. `isConfigured()` gates all calls.
+- **`RoundSyncService`** — primary sync orchestrator. `syncFixtures()`: calls FootballDataService first; if empty AND FlashScore is configured, deletes existing football-data fixtures for the round and uses FlashScore instead. `syncResults()`: uses FlashScore path when any fixture has `fs_` external_id. Activates pending round and sets `locks_at` from earliest kickoff. `maybeAutoResolve()` triggers when all non-postponed/cancelled fixtures are finished.
 - **`RoundResolveService`** — scores predictions, updates `round_entries.points` + `is_perfect`, increments `season_points`, awards jackpot, writes `SeasonRoundPoints` rows, calls `BadgeService::awardBadges()`.
 - **`BadgeService`** — evaluates all 6 badge categories from `SeasonRoundPoints`, upgrade-only upsert into `player_badges`. Called after every round resolution.
 - **`StreakService`** — computes live streaks for all players in a season from `SeasonRoundPoints`. 2 queries + PHP grouping. Called by `StateController`.
@@ -234,6 +275,7 @@ DATABASE_URL=postgresql://...       # auto-injected by Railway PostgreSQL servic
 SESSION_DRIVER=cookie
 QUEUE_CONNECTION=sync
 FOOTBALL_DATA_API_KEY=...
+FLASHSCORE_API_KEY=...          # RapidAPI key for FlashScore4 fallback (flashscore4.p.rapidapi.com)
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
 R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
@@ -249,6 +291,11 @@ R2_BUCKET=bettingapp-backups
 - Free tier: **100 requests/day**. The scheduler (fixtures daily 08:00 UTC, results every 3h) consumes these — manual sync during heavy debug sessions can exhaust the quota.
 - `ConnectionException` (timeout) is caught in `FootballDataService::getMatches()` and `getFinishedMatches()` — returns `[]` with a warning log instead of crashing. `getCurrentMatchday()` (called at season creation) is **not** wrapped and will 500 if the API times out.
 - `RoundSyncService::syncFixtures()` explicitly calls `$round->load('season')` to guarantee the relation is hydrated regardless of the caller's eager-loading.
+
+### FlashScore fallback
+- Kicks in when football-data.org returns empty for `syncFixtures()` or `syncResults()`.
+- Fixtures get `external_id` prefixed with `fs_` (e.g. `fs_abc123`). This prefix is how the system identifies FlashScore-sourced fixtures throughout.
+- **Duplication risk**: if a round was previously synced via football-data.org and then re-synced via FlashScore, both sets coexist (different `external_id` → different rows). Fix: `php artisan fixtures:cleanup-duplicates` removes the football-data.org rows when both exist. The Admin UI also has **Reset & Re-sync** (Admin → round card) and **Delete** buttons for manual recovery.
 
 ---
 
